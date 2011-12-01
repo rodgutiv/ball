@@ -1,8 +1,6 @@
 // -*- Mode: C++; tab-width: 2; -*-
 // vi: set ts=2:
 //
-// $Id: options.h,v 1.26.14.1 2007/03/25 21:23:40 oliver Exp $
-//
 
 #ifndef BALL_DATATYPE_OPTIONS_H
 #define BALL_DATATYPE_OPTIONS_H
@@ -19,6 +17,10 @@
 #	include <BALL/DATATYPE/stringHashMap.h>
 #endif
 
+#ifndef BALL_FORMAT_PARAMFILE_H
+# include <BALL/FORMAT/paramFile.h>
+#endif
+
 #ifndef BALL_MATHS_VECTOR3_H
 #	include <BALL/MATHS/vector3.h>
 #endif
@@ -27,7 +29,7 @@
 #	include <BALL/CONCEPT/persistentObject.h>
 #endif
 
-namespace BALL 
+namespace BALL
 {
 	/**		Options class.
 				This object is intended to store options for complex
@@ -191,7 +193,7 @@ namespace BALL
 					@param	key the key
 					@return	Vector3	vector containing the three coordinates
 		*/
-		Vector3	getVector(const String& key) const;
+		Vector3 getVector(const String& key) const;
 
 		/**		Returns the value associated with the key as an integer.
 					If the value corresponding to <b>key</b> could not be converted to an
@@ -202,6 +204,9 @@ namespace BALL
 					@param	key the key
 		*/
 		long getInteger(const String& key) const;
+
+		/* Return the description that was registered for the parameter identified by the given key */
+		const ParameterDescription* getParameterDescription(const String& key) const;
 
 		/** 	Assigns value to key. 
 					The string given as <b>value</b> is assigned to the <b>key</b>.
@@ -288,6 +293,37 @@ namespace BALL
 		*/
 		bool setDefaultBool(const String& key, const bool value);
 
+		void addParameterDescription(const String& key, String description, ParameterType type, list<String>* allowed_values = NULL);
+
+		/** Create a new subcategory of options.
+				
+				@return a pointer to the newly created subcategory. 
+				
+				Note that the Options instance that represents the subcategory belongs
+			 	to the parent object, so do not delete it manually. 
+		*/
+		Options* createSubcategory(String name);
+
+		/** Search and return a subcategories of options.
+				
+				@return a pointer to the newly created subcategory. 
+		
+				Note that the Options instance that represents the subcategory belongs
+			 	to the parent object, so do not delete it manually. \n 
+				If no subcategory for the given name is found, a null-pointer is returned. 
+		*/
+		Options* getSubcategory(String name);
+
+		/** Get an iterator to the first subcategory 
+		*/
+		StringHashMap<Options*>::Iterator
+		beginSubcategories();
+
+		/** Get an iterator past the last subcategory 
+		*/
+		StringHashMap<Options*>::Iterator
+		endSubcategories();
+
 		/**		Reads options from a file. 
 					This method opens the file specified by <b>filename</b>.
 					If the file could not be opened, the method returns false.
@@ -318,7 +354,7 @@ namespace BALL
 													- <b>false</b> otherwise
 												
 					@see readOptionFile
-		*/		
+		*/
 		bool writeOptionFile(const String& filename) const;
 
 		/**	Persistent stream writing.
@@ -347,7 +383,7 @@ namespace BALL
 		/**@name	Debugging 
 		*/
 		//@{
-		
+
 		/** Dumps the whole content of the object 
 		*/
 		virtual void dump (std::ostream& s = std::cout, Size depth = 0) const;
@@ -357,7 +393,10 @@ namespace BALL
 		protected:
 
 		/*_	The option table's name */
-		String		name_;
+		String     name_;
+
+		StringHashMap<ParameterDescription> descriptions_;
+		StringHashMap<Options*>             subcategories_;
 
 	};
 } // namespace BALL

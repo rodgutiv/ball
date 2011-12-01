@@ -4,6 +4,7 @@ SET(SOURCES_LIST
 	antechamberFile.C
 	bruker1DFile.C
 	bruker2DFile.C
+	commandlineParser.C
 	CCP4File.C
 	CIFFile.C
 	DCDFile.C
@@ -22,6 +23,7 @@ SET(SOURCES_LIST
 	NMRStarFile.C
 	parameters.C
 	parameterSection.C
+	paramFile.C
 	PDBdefs.C
 	PDBFileGeneral.C
 	PDBFileDetails.C

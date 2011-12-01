@@ -1,8 +1,6 @@
 // -*- Mode: C++; tab-width: 2; -*-
 // vi: set ts=2:
 //
-// $Id: string.h,v 1.56 2005/12/23 17:01:43 amoll Exp $
-//
 
 #ifndef BALL_DATATYPE_STRING_H
 #define BALL_DATATYPE_STRING_H
@@ -729,6 +727,10 @@ namespace BALL
 				@return the first position of the substitution or  \link EndPos EndPos \endlink  if <b>to_replace</b> is not found
 		*/
 		Size substitute(const String& to_replace, const String& replacing);
+
+		/** Substitute *all* occurences of <b>to_replace</b> by the content of <b>replacing</b>. 
+		*/
+		void substituteAll(const String& to_replace, const String& replacing);
 
 		//@}
 

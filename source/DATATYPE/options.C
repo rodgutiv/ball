@@ -1,8 +1,6 @@
 // -*- Mode: C++; tab-width: 2; -*-
 // vi: set ts=2:
 //
-// $Id: options.C,v 1.27.14.2 2007/05/17 00:02:42 amoll Exp $ 
-//
 
 #include <BALL/DATATYPE/options.h>
 
@@ -19,25 +17,26 @@ using namespace std;
 using std::ofstream;
 using std::ios;
 
-namespace BALL 
+namespace BALL
 {
 
 	const Size Options::MAX_ENTRY_LENGTH = 1024;
 
 	Options::Options()
-		:	StringHashMap<String>(),
+		: StringHashMap<String>(),
 			name_("")
 	{
 	}
 
 	Options::Options(const Options& options)
-		:	StringHashMap<String>(options),
+		: StringHashMap<String>(options),
 			name_(options.name_)
 	{
 	}
 
 	Options::~Options()
 	{
+		clear();
 	}
 
 	bool Options::isReal(const String& key) const
@@ -47,7 +46,7 @@ namespace BALL
 		return (!value.isEmpty() && value.isFloat());
 	}
 
-	bool Options::isVector(const String& key) const 
+	bool Options::isVector(const String& key) const
 	{
 		// if the key does not exist - then the nonexistent value	
 		// cannot contain a vector
@@ -267,8 +266,8 @@ namespace BALL
 		{
 			setBool(key, value);
 			return value;
-		} 
-		else 
+		}
+		else
 		{
 			return getBool(key);
 		}
@@ -290,6 +289,52 @@ namespace BALL
 	void Options::setName(const String& name)
 	{
 		name_ = name;
+	}
+
+	void Options::addParameterDescription(const String& key, String description,
+			                                        ParameterType type, list<String>* allowed_values)
+	{
+		ParameterDescription td;
+		td.name        = key;
+		td.description = description;
+		td.type        = type;
+		if (allowed_values)
+		{
+			td.allowed_values = *allowed_values;
+		}
+		descriptions_.insert(make_pair(key, td));
+	}
+
+	Options* Options::createSubcategory(String name)
+	{
+		StringHashMap<Options*>::Iterator it = subcategories_.find(name);
+		if (it == subcategories_.end())
+		{
+			Options* child_options = new Options;
+			child_options->name_ = name;
+			it = subcategories_.insert(make_pair(name, child_options)).first;
+		}
+		return it->second;
+	}
+
+	Options* Options::getSubcategory(String name)
+	{
+		StringHashMap<Options*>::Iterator it = subcategories_.find(name);
+		if (it != subcategories_.end())
+		{
+			return it->second;
+		}
+		return NULL;
+	}
+
+	StringHashMap<Options*>::Iterator Options::beginSubcategories()
+	{
+		return subcategories_.begin();
+	}
+
+	StringHashMap<Options*>::Iterator Options::endSubcategories()
+	{
+		return subcategories_.end();
 	}
 
 	const String& Options::getName() const
@@ -315,9 +360,23 @@ namespace BALL
 		}
 	}
 
+	const ParameterDescription* Options::getParameterDescription(const String& key) const
+	{
+		StringHashMap<ParameterDescription>::ConstIterator it = descriptions_.find(key);
+
+		if (it == descriptions_.end())
+		{
+			return NULL;
+		}
+		else
+		{
+			return &it->second;
+		}
+	}
+
 	bool Options::readOptionFile(const String& filename)
 	{
-		ifstream	infile;
+		ifstream infile;
 		infile.open(filename.c_str(), ios::in);
 		if (!infile)
 		{
@@ -325,7 +384,7 @@ namespace BALL
 		}
 
 		char		buffer[MAX_ENTRY_LENGTH + 1];
-		String	s, key;
+		String s, key;
 		while (infile.getline(buffer, MAX_ENTRY_LENGTH))
 		{
 			if ((buffer[0] != '#') && (buffer[0] != '!') && (buffer[0] != ';')) 
@@ -351,15 +410,15 @@ namespace BALL
 				set(key, s);
 			}
 		}
-					
+
 		infile.close();
 		return true;
 	}
-		
+
 	bool Options::writeOptionFile(const String& filename) const
 	{
-		std::list<String>		entry_list;
-		String							entry;
+		std::list<String>  entry_list;
+		String             entry;
 
 		std::ofstream stream(filename.c_str());//, File::OUT);
 		if (!stream.is_open())
@@ -369,7 +428,7 @@ namespace BALL
 
 		stream << "![OptionsTable: " << getName() << " (" << size() << " entries)]" << endl;
 
-		StringHashMap<String>::ConstIterator	it(begin());
+		StringHashMap<String>::ConstIterator it(begin());
 		for(; !(it == end()); ++it)
 		{
 			entry = (*it).first + ' ' + (*it).second;
@@ -378,14 +437,14 @@ namespace BALL
 
 		entry_list.sort();
 
-		std::list<String>::iterator	list_it = entry_list.begin();
-		for (; list_it != entry_list.end(); ++list_it) 
+		std::list<String>::iterator list_it = entry_list.begin();
+		for (; list_it != entry_list.end(); ++list_it)
 		{
-	  	stream << *list_it << endl;
+			stream << *list_it << endl;
 		}
 
 		stream << "!-----------------------------------" << endl;
-		
+
 		stream.close();
 		entry_list.clear();
 		return true;
@@ -407,13 +466,13 @@ namespace BALL
 		}
 
 		entry_list.sort();
-		std::list<String>::iterator	list_it = entry_list.begin();
-		for (; list_it != entry_list.end(); ++list_it) 
+		std::list<String>::iterator list_it = entry_list.begin();
+		for (; list_it != entry_list.end(); ++list_it)
 		{
-	  	pm.writePrimitive(*list_it, "key/value");
+			pm.writePrimitive(*list_it, "key/value");
 		}
 	}
-	
+
 	bool Options::read(PersistenceManager& pm)
 	{
 		clear();
@@ -426,7 +485,7 @@ namespace BALL
 		{
 			success &= pm.readPrimitive(line, "key/value");
 			set(line.getField(0, " "), line.after(" "));
-		}	
+		}
 
 		return success;
 	}
@@ -438,7 +497,7 @@ namespace BALL
 
 		stream << "[OptionsTable: " << getName() << " (" << size() << " entries)]" << endl;
 
-		StringHashMap<String>::ConstIterator	it(begin());
+		StringHashMap<String>::ConstIterator it(begin());
 		for(; !(it == end()); ++it)
 		{
 			entry = (*it).first + ' ' + (*it).second;
@@ -447,10 +506,10 @@ namespace BALL
 
 		entry_list.sort();
 
-		std::list<String>::iterator	list_it = entry_list.begin();
-		for (; list_it != entry_list.end(); ++list_it) 
+		std::list<String>::iterator list_it = entry_list.begin();
+		for (; list_it != entry_list.end(); ++list_it)
 		{
-	  	stream << *list_it << endl;
+			stream << *list_it << endl;
 		}
 
 		stream << "-----------------------------------" << endl;
@@ -466,17 +525,17 @@ namespace BALL
 		return *this;
 	}
 
-	bool Options::operator == (const Options& option) const 
+	bool Options::operator == (const Options& option) const
 	{
 		if (this->name_ != option.name_)
 		{
 			return false;
 		}
-		
+
 		return StringHashMap<String>::operator == (option);
 	}
 
-	bool Options::operator != (const Options& option) const 
+	bool Options::operator != (const Options& option) const
 	{
 		return !(*this == option);
 	}
@@ -485,6 +544,15 @@ namespace BALL
 	{
 		name_ = "";
 		StringHashMap<String>::clear();
+		descriptions_.clear();
+
+		for(StringHashMap<Options*>::iterator it = subcategories_.begin();
+				it != subcategories_.end(); it++)
+		{
+			delete it->second;
+		}
+		subcategories_.clear();
+
 	}
 
 

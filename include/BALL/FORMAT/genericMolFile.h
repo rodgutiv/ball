@@ -74,12 +74,12 @@ namespace BALL
 		/** Destructor
 		*/
 		virtual ~GenericMolFile();
-		
+
 		//@}
 		/**	@name Assignment
 		*/
 		//@{
-	
+
 		/**	Assignment operator.
 		 *	Create a new object pointing to the same filename.
 		 *  @throw Exception::FileNotFound if the file could not be opened
@@ -133,6 +133,8 @@ namespace BALL
 		 */
 		virtual Molecule* read();
 
+		virtual void close();
+
 		//@}
 		/**	@name Operators
 		*/
@@ -162,7 +164,21 @@ namespace BALL
 		 */
 		virtual GenericMolFile& operator << (const Molecule& molecule);
 		//@}
-		
+
+		/** Define the input file to be a temporary file (e.g. an unzipped file).
+		 *	In this case, the input file will be deleted when this GenericMolFile is closed. 
+		 */
+		void defineInputAsTemporary(bool b = true);
+
+		/** Enable compression of the output file.
+		 *  If enabled, the output-file will be gzip'ed. 
+		 *  Output will be stored under the specified filename and the original (uncompressed) output 
+		 *  file will be deleted. 
+		 */
+		void enableOutputCompression(String zipped_filename);
+
+		bool isCompressedFile();
+
 		protected:
 		/**	Initialize internals for read.
 				This method is called by the default implementation 
@@ -172,13 +188,19 @@ namespace BALL
 				The default implementation provided is empty.
 		*/
 		virtual void initRead_();
-			
+
 		/**	Initialize internals for write.
 				Same functionality as  \link initRead initRead \endlink , but is called 
 				prior to writing a system.
 		*/
 		virtual void initWrite_();
-		
+
+
+		bool input_is_temporary_;
+		bool compress_output_;
+		bool gmf_is_closed_;
+		String zipped_filename_;
+
 	};
 } // namespace BALL
 
