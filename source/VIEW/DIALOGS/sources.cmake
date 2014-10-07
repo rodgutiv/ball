@@ -45,6 +45,7 @@ SET(UI_LIST
 	PTEDialog.ui
 	pubchemDialog.ui
 	raytraceableContourSurfaceDialog.ui
+	rmsdCalculator.ui
 	setCamera.ui
 	setClippingPlane.ui
 	shortcutDialog.ui
@@ -98,6 +99,7 @@ SET(SOURCES_LIST
 	PTEDialog.C
 	pubchemDialog.C
 	raytraceableContourSurfaceDialog.C
+	rmsdCalculator.C
 	setCamera.C
 	setClippingPlane.C
 	serverPreferences.C

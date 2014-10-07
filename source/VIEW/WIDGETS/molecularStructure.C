@@ -200,11 +200,11 @@ namespace BALL
 //			hint = " Map two proteins.";
 // 			map_proteins_id_ = insertMenuEntry(MainControl::TOOLS, "&Map two Proteins", this, SLOT(mapProteins()), 0, -1, hint);
 
-			description = "Shortcut|Tools|Calculate_RMSD";
-			calculate_RMSD_id_ = insertMenuEntry(MainControl::TOOLS, tr("&Calculate RMSD"), this, 
-																					 SLOT(calculateRMSD()), description, QKeySequence(),
-																					 tr("Highlight two (partial) structures to calculate their RMSD value"),
-																					 UIOperationMode::MODE_ADVANCED);
+//			description = "Shortcut|Tools|Calculate_RMSD";
+//			calculate_RMSD_id_ = insertMenuEntry(MainControl::TOOLS, tr("&Calculate RMSD"), this, 
+//																					 SLOT(calculateRMSD()), description, QKeySequence(),
+//																					 tr("Highlight two (partial) structures to calculate their RMSD value"),
+//																					 UIOperationMode::MODE_ADVANCED);
 			
 			description = "Shortcut|Tools|Calculate_SecondaryStructure";
 			calculate_ss_id_ = insertMenuEntry(MainControl::TOOLS, tr("Calculate Sec&ondary Structure"), this,

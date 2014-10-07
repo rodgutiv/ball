@@ -16,6 +16,7 @@
 #include <BALL/VIEW/WIDGETS/scene.h>
 #include <BALL/VIEW/WIDGETS/fileObserver.h>
 #include <BALL/VIEW/DIALOGS/pubchemDialog.h>
+#include <BALL/VIEW/DIALOGS/rmsdCalculator.h>
 #include <BALL/VIEW/DIALOGS/undoManagerDialog.h>
 #include <BALL/VIEW/DIALOGS/downloadPDBFile.h>
 #include <BALL/VIEW/DIALOGS/downloadElectronDensity.h>
@@ -136,6 +137,8 @@ namespace BALL
 		addDockWidget(Qt::BottomDockWidgetArea, new HelpViewer(this, "BALLView Docu"));
 		new LabelDialog(        this, ((String)tr("LabelDialog")).c_str());
 		new MolecularStructure(	this, ((String)tr("MolecularStructure")).c_str());
+		new RmsdCalculator(     this, ((String)tr("RmsdCalculator")).c_str());
+
  		addDockWidget(Qt::BottomDockWidgetArea, new LogView(      this, ((String)tr("Logs")).c_str()));
 		addDockWidget(Qt::BottomDockWidgetArea, new FileObserver( this, ((String)tr("FileObserver")).c_str()));
 
@@ -367,6 +370,7 @@ namespace BALL
 
 						tb->addSeparator();
 						DisplayProperties::getInstance(0)->addToolBarEntries(tb);
+						RmsdCalculator::getInstance(0)->addToolBarEntries(tb);
 						MolecularStructure::getInstance(0)->addToolBarEntries(tb);
 		}
 
