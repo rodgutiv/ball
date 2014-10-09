@@ -419,9 +419,9 @@ namespace BALL
 			                             UIOperationMode::MODE_ADVANCED );
 			setIcon ( action1_, "actions/download-pubchem", true );
 
-			action2_ = insertMenuEntry ( MainControl::BUILD, tr ( "Build from SMILES" ), this,
+			action2_ = insertMenuEntry ( MainControl::BUILD, tr ( "Build from SMILES or PubChem" ), this,
 			                             SLOT ( show() ), "Shortcut|Build|Build_from_SMILES", QKeySequence(),
-			                             tr ( "Create a structure from a SMILES expression" ),
+			                             tr ( "Create a structure from a SMILES expression or download via PubChem." ),
 			                             UIOperationMode::MODE_ADVANCED );
 		}
 
