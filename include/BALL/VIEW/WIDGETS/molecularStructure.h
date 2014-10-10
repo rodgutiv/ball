@@ -370,7 +370,7 @@ namespace BALL
 			QAction* create_distance_grid_id_, *create_distance_grid_id2_;
 			QAction* calculate_ss_id_;
 			QAction* map_proteins_id_;
-			QAction* calculate_RMSD_id_;
+//			QAction* calculate_RMSD_id_;
 			QAction* assign_charges_id_;
 			QAction* energy_id_;
 			QAction* minimization_id_;

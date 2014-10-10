@@ -756,8 +756,8 @@ namespace BALL
 //			menuBar()->setItemEnabled( map_proteins_id_, (number_of_selected_objects == 2) && 
 // 																									 composites_muteable);
 
-			if (calculate_RMSD_id_)
-				calculate_RMSD_id_->setEnabled( (number_of_selected_objects == 2) && composites_muteable);
+//			if (calculate_RMSD_id_)
+//				calculate_RMSD_id_->setEnabled( (number_of_selected_objects == 2) && composites_muteable);
 
 			menu = getMainControl()->initPopupMenu(MainControl::TOOLS_GRID, UIOperationMode::MODE_ADVANCED);
 			if (menu)

@@ -427,7 +427,8 @@ namespace BALL
 
 		void PubChemDialog::checkMenu ( MainControl& main_control )
 		{
-			bool busy = main_control.compositesAreLocked();
+//			bool busy = main_control.compositesAreLocked();
+			bool busy = main_control.isBusy();
 
 			if ( action1_ )
 				action1_->setEnabled ( !busy );

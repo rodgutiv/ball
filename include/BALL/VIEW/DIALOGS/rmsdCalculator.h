@@ -18,6 +18,8 @@
 #endif
 
 #include <QtGui/QDialog>
+#include <QtGui>
+
 
 #include <map>
 
@@ -32,7 +34,7 @@ namespace BALL
 {
 	namespace VIEW
 	{
-		/** Dialog for querying PubChem and generating structures from a SMILES string
+		/** Dialog for calculating the RMSD between 'many to many' structures
 		 */
 		class BALL_VIEW_EXPORT RmsdCalculator
 			: public QDialog,
@@ -41,13 +43,10 @@ namespace BALL
 			Q_OBJECT
 
 			public:
-
 				BALL_EMBEDDABLE ( RmsdCalculator,ModularWidget )
 
-				/// Default Constructor.
+				/// Default Constructor & Destructor.
 				RmsdCalculator ( QWidget* parent = NULL, const char* name = "RmsdCalculator" );
-
-				/// Destructor.
 				virtual ~RmsdCalculator();
 
 				///
@@ -57,42 +56,72 @@ namespace BALL
 				virtual void checkMenu ( MainControl& main_control );
 
 			public slots:
-
+				void radioExclusiveDeselect1();
+				void radioExclusiveDeselect2();
+				
+				void calc_rmsd();
+				
+				void addTo_ref();
+				void removeFrom_ref();
+				void addTo_probe();
+				void removeFrom_probe();
+				
+				void addAllTo_probe();
+				void addAllTo_ref();
+				void removeAllFrom_probe();
+				void removeAllFrom_ref();
+				
+				void checkRadioAlign();
+				
 				/// Show and raise dialog
 				void show();
 
-				///
-				void clearEntries();
-
+				// TODO: check if we need to reimplement clear, destroy, initializeWidet etc...
 				///
 				void finished();
 
 
 			protected:
+				// helper methods:
+				void moveBetween2Views_(QTreeWidget *from, list<Composite *> *fromLst, QTreeWidget *to, list<Composite *> *toLst);
+				bool checkProteinsOnly_(); // see if molecule lists contain only protein chains
+				void radioExclusiveDeselect(QRadioButton *btn, int pos);
+				
+				// gui stuff
 				Ui::RmsdCalculatorData* ui_;
-
-				SmilesParser smiles_parser_;
-
-				struct ParsedResult_
-				{
-					QString name;
-					QString description;
-					String smiles;
-				};
-
-				enum InfoDisplayStyle{
-					LONG, SHORT
-				};
-
-				QString buildHeaderTemplate_(InfoDisplayStyle style, const char* str) const;
-
-				std::map<QTreeWidgetItem*, System*> sd_systems_;
-				std::map<QTreeWidgetItem*, System*> original_systems_;
-				std::map<QTreeWidgetItem*, ParsedResult_> descriptions_;
-
 				QAction* action1_;
-
-				HashMap<int, QTreeWidgetItem*> esummary_request_ids_;
+				QPushButton* btn_calculate;
+				
+				// model stuff:
+				// molecule lists
+				list<Composite*> ref_molecules_;
+				list<Composite*> probe_molecules_;
+				
+				// settings:
+				enum CalculationSettings
+				{
+					/// Structure Types
+					OPT_TYPE_PROTEIN,
+					OPT_TYPE_MOLECULE,
+					
+					/// Atoms to use for RMSD calculation
+					OPT_RMSD_ALL,
+					OPT_RMSD_HEAVY,
+					OPT_RMSD_CA,
+					OPT_RMSD_BB,
+			
+					/// Superposeing options:
+					OPT_CALC_ALIGN,
+					OPT_CALC_INPLACE,
+					
+					/// Molecule modification:
+					OPT_MODIFY_NO,
+					OPT_MODIFY_YES,
+					OPT_MODIFY_COPY
+				};
+				CalculationSettings opt_type_, opt_atoms_, opt_superpose_, opt_modify_;
+				void getUserSettings();
+				
 		};
 
 	}

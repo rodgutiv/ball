@@ -15,8 +15,9 @@ SET(SOURCES_LIST
 	molecularStructure.C
 	propertyEditor.C
 	scene.C
-	shortcutTableView.C
 	SDWidget.C
+	shortcutTableView.C
+	structureViewWidget.C
 	testFramework.C
 	textEditorWidget.C
 #	canvasWidget.C
