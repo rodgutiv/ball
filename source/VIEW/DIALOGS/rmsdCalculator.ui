@@ -39,7 +39,7 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>120</height>
+         <height>80</height>
         </size>
        </property>
        <property name="title">
@@ -68,58 +68,79 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QRadioButton" name="rad_use_heavy">
-          <property name="enabled">
-           <bool>true</bool>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="spacing">
+           <number>0</number>
           </property>
-          <property name="font">
-           <font>
-            <strikeout>false</strikeout>
-           </font>
-          </property>
-          <property name="focusPolicy">
-           <enum>Qt::TabFocus</enum>
-          </property>
-          <property name="toolTip">
-           <string>currently not implemented</string>
-          </property>
-          <property name="text">
-           <string>heavy</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="rad_use_all">
-          <property name="text">
-           <string>all</string>
-          </property>
-          <property name="checked">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="rad_use_ca">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Cα</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="rad_use_bb">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>back bone</string>
-          </property>
-         </widget>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout">
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QRadioButton" name="rad_use_heavy">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
+              <property name="font">
+               <font>
+                <strikeout>false</strikeout>
+               </font>
+              </property>
+              <property name="focusPolicy">
+               <enum>Qt::TabFocus</enum>
+              </property>
+              <property name="toolTip">
+               <string>currently not implemented</string>
+              </property>
+              <property name="text">
+               <string>heavy</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="rad_use_all">
+              <property name="text">
+               <string>all</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_2">
+            <property name="spacing">
+             <number>15</number>
+            </property>
+            <item>
+             <widget class="QRadioButton" name="rad_use_ca">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>Cα</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="rad_use_bb">
+              <property name="enabled">
+               <bool>false</bool>
+              </property>
+              <property name="text">
+               <string>back bone</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>
@@ -135,7 +156,7 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>120</height>
+         <height>80</height>
         </size>
        </property>
        <property name="title">
@@ -200,7 +221,7 @@
        <property name="minimumSize">
         <size>
          <width>0</width>
-         <height>120</height>
+         <height>80</height>
         </size>
        </property>
        <property name="title">
@@ -267,6 +288,12 @@
    </item>
    <item>
     <widget class="QGroupBox" name="groupBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
      <property name="baseSize">
       <size>
        <width>0</width>

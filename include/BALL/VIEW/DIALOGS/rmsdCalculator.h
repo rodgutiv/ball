@@ -9,6 +9,10 @@
 # include <BALL/COMMON/global.h>
 #endif
 
+#ifndef BALL_STRUCTURE_STRUCTUREMAPPER_H
+#include <BALL/STRUCTURE/structureMapper.h>
+#endif
+
 #ifndef BALL_VIEW_KERNEL_MODULARWIDGET_H
 # include <BALL/VIEW/KERNEL/modularWidget.h>
 #endif
@@ -86,6 +90,9 @@ namespace BALL
 				void moveBetween2Views_(QTreeWidget *from, list<Composite *> *fromLst, QTreeWidget *to, list<Composite *> *toLst);
 				bool checkProteinsOnly_(); // see if molecule lists contain only protein chains
 				void radioExclusiveDeselect(QRadioButton *btn, int pos);
+				void applyBijection(AtomBijection& atm_bij, AtomContainer *ref, AtomContainer *probe);
+				void getMapping(AtomContainer* probe, AtomContainer* ref, StructureMapper &mapper, Matrix4x4 &trans_matrix);
+				AtomContainer* insertCopyIntoWorkspace(AtomContainer* ac);
 				
 				// gui stuff
 				Ui::RmsdCalculatorData* ui_;

@@ -9,21 +9,20 @@
 
 #include <BALL/VIEW/DIALOGS/rmsdCalculator.h>
 #include <BALL/VIEW/UIC/ui_rmsdCalculator.h>
+
 #include <BALL/VIEW/KERNEL/mainControl.h>
 #include <BALL/VIEW/KERNEL/compositeManager.h>
 #include <BALL/STRUCTURE/structureMapper.h>
-#include <BALL/STRUCTURE/sdGenerator.h>
-#include <BALL/FORMAT/SDFile.h>
+#include <BALL/STRUCTURE/atomBijection.h>
+#include <BALL/KERNEL/atomContainer.h>
+#include <BALL/KERNEL/forEach.h>
+#include <BALL/KERNEL/protein.h>
+#include <BALL/KERNEL/molecule.h>
+#include <BALL/KERNEL/system.h>
+#include <BALL/KERNEL/PTE.h>
 
 #include <BALL/VIEW/WIDGETS/structureViewWidget.h>
 
-#include <QtGui/QPushButton>
-#include <QtGui/QTreeWidget>
-#include <QtGui/QTreeWidgetItem>
-#include <QtGui/QProgressBar>
-#include <QtGui/QMessageBox>
-
-#include <algorithm>
 #include <map>
 
 
@@ -90,12 +89,16 @@ namespace BALL
 		
 		void RmsdCalculator::show()
 		{
+			// Clear data of a possible previous session:
+			//ui_->textEdit_results->clear();
+			
+			// set data for current session:
 			btn_calculate->setEnabled(false);
 			ui_->vbox_opt_modify->setEnabled(false);
 			HashSet<Composite*> composites = getMainControl()->getCompositeManager().getComposites();
 			ui_->treeWidget_workspace->clear();
 			ui_->treeWidget_workspace->generateTree(composites);
-			ui_->treeWidget_workspace->update();
+			//ui_->treeWidget_workspace->update();
 			QDialog::show();
 			raise();
 		}
@@ -121,6 +124,11 @@ namespace BALL
 
 			if ( action1_ )
 				action1_->setEnabled ( !busy );
+			// TODO: 
+			// better lock composites, while the dialog is open
+			QMenu* menu = getMainControl()->initPopupMenu(MainControl::TOOLS_GRID, UIOperationMode::MODE_ADVANCED);
+			if (menu)
+				menu->setEnabled(false);
 		}
 
 		/*
@@ -183,6 +191,235 @@ namespace BALL
 			else
 				ui_->rad_modi_copy->setChecked(false);
 		}
+
+
+		// Calculate RMSD for small-molecules and peptides:
+		void RmsdCalculator::calc_rmsd()
+		{
+			// TODO: perhaps some pre-checks if rmsd-calculation makes sense
+			// e.g.: smolecule  and proteins together in the lists
+			
+			// SETUP:
+			getUserSettings();
+			QString result_output;
+			
+			StructureMapper mapper;
+			AtomBijection atom_selection;
+			
+			double rmsd_result = -1;
+			Matrix4x4 trans_matrix;
+			// loop variables (above)
+			
+			// loop in a many-to-many manner over references and probes:
+			list<Composite*>::iterator refIt = ref_molecules_.begin();
+			for (; refIt != ref_molecules_.end(); refIt++)
+			{
+				list<Composite*>::iterator proIt = probe_molecules_.begin();
+				for (; proIt != probe_molecules_.end(); proIt++)
+				{
+//------------------------------------------------------------------------------
+					// get molecules:
+					AtomContainer* ref_ac = dynamic_cast<AtomContainer*>(*refIt);
+					AtomContainer* probe_ac = dynamic_cast<AtomContainer*>(*proIt);
+					
+					// get the correct bijection (atom selection for RMSD calculation)
+					// according to users wishes:
+					
+					
+					
+					// superpose (if user wants that)
+					if (opt_superpose_ == OPT_CALC_ALIGN)
+					{
+						getMapping(probe_ac, ref_ac, mapper, trans_matrix);// get transformation matrix
+						mapper.setTransformation(trans_matrix);
+						
+						if (opt_modify_ == OPT_MODIFY_YES) // modify the probes themselves
+						{
+							probe_ac->apply(mapper);
+
+							applyBijection(atom_selection, ref_ac, probe_ac);
+							rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
+							// update the changed structure:
+							getMainControl()->updateRepresentationsOf(*probe_ac,true,true);
+						}
+						else if (opt_modify_ == OPT_MODIFY_COPY) // create modified copy and insert into workspace
+						{
+							AtomContainer* temp_probe_ac = insertCopyIntoWorkspace(probe_ac);
+							temp_probe_ac->apply(mapper);
+							
+							applyBijection(atom_selection, ref_ac, temp_probe_ac);
+							rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
+						}
+						else // align but without affecting workspace:
+						{
+							AtomContainer* temp_probe_ac = new AtomContainer(*probe_ac, true);
+							temp_probe_ac->apply(mapper);
+							
+							applyBijection(atom_selection, ref_ac, temp_probe_ac);
+							rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
+							
+							delete temp_probe_ac;
+						}
+					}
+					else // no superposition:
+					{
+						applyBijection(atom_selection, ref_ac, probe_ac);
+						rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
+					}
+					
+					ui_->textEdit_results->appendPlainText(QString("RMSD: ") + QString::number(rmsd_result));
+					
+					// TODO
+					// * get the original names, as displayed in the widget
+					//   add to Result-object (perhaps a string/qustring?)
+					// * format RMSD meaningful: float with (max) 4 digits
+
+//			// DEBUG:
+//			ui_->textEdit_results->appendPlainText(QString("OPTIONS:"));
+//			ui_->textEdit_results->appendPlainText(QString("opt_type_:      ") + QString::number(opt_type_));
+//			ui_->textEdit_results->appendPlainText(QString("opt_superpose_: ") + QString::number(opt_superpose_));
+//			ui_->textEdit_results->appendPlainText(QString("opt_atoms_:     ") + QString::number(opt_atoms_));
+//			ui_->textEdit_results->appendPlainText(QString("opt_modify_:      ") + QString::number(opt_modify_));
+//			ui_->textEdit_results->appendPlainText(QString("......................................."));
+//      // selected atoms for RMSD:
+//					ui_->textEdit_results->appendPlainText(QString("got bijection size ")+
+//																								 QString(QString::number(atom_selection.size())));
+//					// DEBUG START
+//					AtomBijection::PairVector::iterator it = atom_selection.begin();
+//					for (;it != atom_selection.end(); it++)
+//					{
+//						ui_->textEdit_results->appendPlainText(QString(it->first->getFullName().c_str())+
+//																									 QString(" - ")+QString(it->second->getFullName().c_str()));
+//					}
+//					// DEBUG END
+
+//------------------------------------------------------------------------------
+				}
+				ui_->textEdit_results->appendPlainText(QString("")); // next reference
+			} // END many-to-many LOOP
+			
+			//TODO:
+			// Display the results for this (multi)-calculation
+		}
+		
+		/* Create the correct bijection object, depending on
+		 * the user selection
+		 */
+		void RmsdCalculator::applyBijection(AtomBijection& atm_bij, AtomContainer* ref, AtomContainer* probe)
+		{
+			switch( opt_atoms_)
+			{
+			case OPT_RMSD_HEAVY:
+			{
+				// select all non hydrogen atoms
+				AtomIterator iter, iter2;
+				iter = ref->beginAtom(); iter2 = probe->beginAtom();
+				for(; (iter != ref->endAtom() && iter2 != probe->endAtom()); iter++, iter2++)
+				{
+					if (iter->getElement().getSymbol() == "H"){
+						iter->deselect();
+					}
+					else{
+						iter->select();
+					}
+					
+					if (iter2->getElement().getSymbol() == "H") {
+						iter2->deselect();
+					}
+					else{
+						iter2->select();
+					}
+				}
+
+				if (opt_type_ == OPT_TYPE_MOLECULE)// if we have a smolecule we can only use trivial-assignment
+					atm_bij.assignTrivial(*probe, *ref, true);
+				else
+					atm_bij.assignByName(*probe, *ref, true);
+				break;
+			}
+			case OPT_RMSD_ALL:
+			{
+				if (opt_type_ == OPT_TYPE_MOLECULE)
+					atm_bij.assignTrivial(*probe, *ref);
+				else
+					atm_bij.assignByName(*probe, *ref);
+			}
+				break;
+			case OPT_RMSD_CA:
+				atm_bij.assignCAlphaAtoms(*probe, *ref);
+				break;
+			case OPT_RMSD_BB:
+				atm_bij.assignBackboneAtoms(*probe, *ref);
+				break;
+			default:
+				// TODO trow error?
+				break;
+			}
+		}
+		
+		/* Check if superposition is necessary,
+		 * if so apply it
+		 */
+		void RmsdCalculator::getMapping(AtomContainer* probe, AtomContainer* ref, StructureMapper &mapper, Matrix4x4 &trans_matrix)
+		{
+			std::map<String, Position> type_map;
+			type_map["ALA"] = 0;
+			type_map["GLY"] = 1;
+			type_map["VAL"] = 2;
+			type_map["LEU"] = 3;
+			type_map["ILE"] = 4;
+			type_map["SER"] = 5;
+			type_map["CYS"] = 6;
+			type_map["THR"] = 7;
+			type_map["MET"] = 8;
+			type_map["PHE"] = 9;
+			type_map["TYR"] = 10;
+			type_map["TRP"] = 11;
+			type_map["PRO"] = 12;
+			type_map["HIS"] = 13;
+			type_map["LYS"] = 14;
+			type_map["ARG"] = 15;
+			type_map["ASP"] = 16;
+			type_map["GLU"] = 17;
+			type_map["ASN"] = 18;
+			type_map["GLN"] = 19;
+			
+			// default box values
+			double upper = 8.0;
+			double lower = 4.0;
+			double tolerance = 0.6;
+			double rmsd=-1;
+			Size matched_ca;
+			
+			//TODO: use dynamic cast and catch error! (the chains could be incorrectly molecules)
+			Protein* orig_ref = (Protein*)ref->getParent();
+			Protein* orig_prob= (Protein*)probe->getParent();
+
+			trans_matrix = mapper.mapProteins(*orig_prob,*orig_ref,type_map,matched_ca,rmsd,upper,lower,tolerance);
+		}
+		
+		AtomContainer* RmsdCalculator::insertCopyIntoWorkspace(AtomContainer *ac)
+		{
+			// create a new system:
+			System* new_sys = new System();
+			
+			if (opt_type_ == OPT_TYPE_PROTEIN)
+			{
+				AtomContainer *new_ac = new AtomContainer(*ac, true);
+				Protein* prot = new Protein();
+				prot->insert(*new_ac);
+				new_sys->insert(*prot);
+				getMainControl()->insert(*new_sys, "copy_"+ac->getName());
+				return new_ac;
+			}
+			else
+			{
+				Molecule * mol = new Molecule(*ac, true);
+				new_sys->insert(*mol);
+				getMainControl()->insert(*new_sys, "copy_"+ac->getName());
+				return mol;
+			}
+		}
 		
 		void RmsdCalculator::getUserSettings()
 		{
@@ -217,57 +454,7 @@ namespace BALL
 				opt_type_ = OPT_TYPE_MOLECULE;
 		}
 		
-		
 
-
-		// Calculate RMSD for small-molecules and peptides:
-		void RmsdCalculator::calc_rmsd()
-		{
-			// parse settings and start gui-decoupled functions:
-
-			std::map<String, Position> type_map;
-			type_map["ALA"] = 0;
-			type_map["GLY"] = 1;
-			type_map["VAL"] = 2;
-			type_map["LEU"] = 3;
-			type_map["ILE"] = 4;
-			type_map["SER"] = 5;
-			type_map["CYS"] = 6;
-			type_map["THR"] = 7;
-			type_map["MET"] = 8;
-			type_map["PHE"] = 9;
-			type_map["TYR"] = 10;
-			type_map["TRP"] = 11;
-			type_map["PRO"] = 12;
-			type_map["HIS"] = 13;
-			type_map["LYS"] = 14;
-			type_map["ARG"] = 15;
-			type_map["ASP"] = 16;
-			type_map["GLU"] = 17;
-			type_map["ASN"] = 18;
-			type_map["GLN"] = 19;
-			
-			// map the two static chains
-			Matrix4x4       transMatrix;
-			StructureMapper sMapper;
-			double					rmsd;
-			
-			// default values
-			double upper = 8.0;
-			double lower = 4.0;
-			double tolerance = 0.6;
-			
-			// Print settings:
-			getUserSettings();
-			ui_->textEdit_results->clear();
-			ui_->textEdit_results->appendPlainText(QString("OPTIONS:"));
-			ui_->textEdit_results->appendPlainText(QString("opt_type_:      ") + QString::number(opt_type_));
-			ui_->textEdit_results->appendPlainText(QString("opt_superpose_: ") + QString::number(opt_superpose_));
-			ui_->textEdit_results->appendPlainText(QString("opt_atoms_:     ") + QString::number(opt_atoms_));
-			ui_->textEdit_results->appendPlainText(QString("opt_modify_:      ") + QString::number(opt_modify_));
-		}
-		
-		
 		
 		// modifications on probe structures are only possible
 		// if a structural alignment is done.

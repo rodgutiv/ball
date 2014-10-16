@@ -8,6 +8,10 @@
 //
 
 #include <BALL/VIEW/WIDGETS/structureViewWidget.h>
+#include <BALL/CONCEPT/composite.h>
+#include <BALL/KERNEL/atomContainer.h>
+#include <BALL/KERNEL/chain.h>
+#include <BALL/KERNEL/residue.h>
 //#include <BALL/VIEW/KERNEL/mainControl.h>
 
 #include <QtGui/QComboBox>
@@ -73,13 +77,22 @@ namespace BALL
 		
 		bool StructureViewWidget::isValidChain(Composite *comp)
 		{
-			Composite * firstC = comp->getFirstChild();
-			Composite * lastC = comp->getFirstChild();
-			if (!firstC || !lastC)
-			{
+			Chain* totest = dynamic_cast<Chain*>(comp);
+			if (!totest)
 				return false;
+			
+			Residue * isAA=0;
+			int yes=0;
+			for (int i = 0; i < 10; i++)
+			{
+				isAA = totest->getResidue(i);
+				if (!isAA)
+					return false;
+				
+				if(isAA->isAminoAcid())
+					yes++;
 			}
-			return firstC->isResidue() && lastC->isResidue();
+			return (yes >=7);
 		}
 		
 		
@@ -94,6 +107,8 @@ namespace BALL
 			Composite::ChildCompositeIterator it = composite->beginChildComposite();
 			for (;it!= composite->endChildComposite(); it++)
 			{
+				AtomContainer* ac_test = dynamic_cast<AtomContainer *>(&(*it));
+				
 				// get name of composite:
 				molInfo.visit(*it);
 				QString name = inname + "_" + getName_(molInfo);
