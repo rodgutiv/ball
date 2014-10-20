@@ -55,7 +55,19 @@ namespace BALL
 		{
 		#ifdef BALL_VIEW_DEBUG
 			Log.error() << "new MolecularControl " << this << std::endl;
-		#endif
+#endif
+		}
+		
+		CompositWidgetItem *StructureViewWidget::getWidgetItem(Composite * comp)
+		{
+			if (comp_to_widget.has(comp))
+			{
+				return comp_to_widget[comp];
+			}
+			else
+			{
+				return 0;
+			}
 		}
 		
 		
@@ -126,8 +138,6 @@ namespace BALL
 			Composite::ChildCompositeIterator it = composite->beginChildComposite();
 			for (;it!= composite->endChildComposite(); it++)
 			{
-				AtomContainer* ac_test = dynamic_cast<AtomContainer *>(&(*it));
-				
 				// get name of composite:
 				molInfo.visit(*it);
 				QString name = inname + "_" + getName_(molInfo);
@@ -145,6 +155,7 @@ namespace BALL
 					QStringList sl;
 					sl << name;
 					new_item = new CompositWidgetItem(this, sl, &((*it)));
+					comp_to_widget[&*it] = new_item;
 				}
 				// else if not ended: descend further
 				else if(it->getDegree() != 0)

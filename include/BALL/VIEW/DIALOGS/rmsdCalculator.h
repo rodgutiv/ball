@@ -88,7 +88,8 @@ namespace BALL
 			protected:
 				// helper methods:
 				void moveBetween2Views_(QTreeWidget *from, list<Composite *> *fromLst, QTreeWidget *to, list<Composite *> *toLst);
-				bool checkProteinsOnly_(); // see if molecule lists contain only protein chains
+				int checkProteinsOnly_(); // see if molecule lists contain only protein chains
+				bool isProteinic(Composite & comp);
 				void radioExclusiveDeselect(QRadioButton *btn);
 				void applyBijection(AtomBijection& atm_bij, AtomContainer *ref, AtomContainer *probe);
 				void getMapping(AtomContainer* probe, AtomContainer* ref, StructureMapper &mapper, Matrix4x4 &trans_matrix);
@@ -98,6 +99,7 @@ namespace BALL
 				Ui::RmsdCalculatorData* ui_;
 				QAction* action1_;
 				QPushButton* btn_calculate;
+				int done_calcs;
 				
 				// model stuff:
 				// molecule lists

@@ -42,6 +42,7 @@ namespace BALL
 			ui_->setupUi ( this );
 			
 			setObjectName ( name );
+			done_calcs = 0;
 
 			// register the widget with the MainControl
 			ModularWidget::registerWidget ( this );
@@ -49,7 +50,7 @@ namespace BALL
 			// setup the button box:
 			btn_calculate = ui_->buttonBox->addButton ( tr ( " Calculate " ), QDialogButtonBox::ActionRole );
 			connect( btn_calculate, SIGNAL(clicked()), this, SLOT(calc_rmsd()) );
-			QPushButton* btn_cancel = ui_->buttonBox->addButton ( tr ( " Cancel " ), QDialogButtonBox::RejectRole );
+			QPushButton* btn_cancel = ui_->buttonBox->addButton ( tr ( " Close " ), QDialogButtonBox::RejectRole );
 			connect( btn_cancel, SIGNAL(clicked()), this, SLOT(finished()) );
 			
 			// Setup the 2x4 add/remove arrow-buttons:
@@ -80,7 +81,6 @@ namespace BALL
 #ifdef BALL_VIEW_DEBUG
 			Log.error() << "deleting RmsdCalculator " << this << std::endl;
 #endif
-			// NOT YET 100% SURE IF I NEED TO DELETE SOMETHING ELSE HERE
 
 			delete ui_;
 		}
@@ -88,9 +88,6 @@ namespace BALL
 		
 		void RmsdCalculator::show()
 		{
-			// Clear data of a possible previous session:
-			//ui_->textEdit_results->clear();
-			
 			// reset options:
 			btn_calculate->setEnabled(false);
 			ui_->vbox_opt_modify->setEnabled(false);
@@ -132,59 +129,61 @@ namespace BALL
 		 */
 		void RmsdCalculator::checkMenu ( MainControl& main_control )
 		{// disable tool menu-entry when structure/composite window is locked:
-			bool busy = main_control.compositesAreLocked();
+			bool busy = !main_control.compositesAreLocked();
 
 			if ( action1_ )
-				action1_->setEnabled ( !busy );
-			// TODO: 
-			// better lock composites, while the dialog is open
-			QMenu* menu = getMainControl()->initPopupMenu(MainControl::TOOLS_GRID, UIOperationMode::MODE_ADVANCED);
-			if (menu)
-				menu->setEnabled(false);
+				action1_->setEnabled ( busy );
 		}
 
 		/*
-		 * Returns true only if all selected structures are proteinogenic structures
-		 * in references and probes.
+		 * Returns if all selected structures are proteinogenic structures
+		 * in references and probes returns 1, if all are small molecules
+		 * returns 0 and -1 if both sets are mixed or empty.
 		 */
-		bool RmsdCalculator::checkProteinsOnly_()
+		int RmsdCalculator::checkProteinsOnly_()
 		{
 			if ( ref_molecules_.empty() || probe_molecules_.empty() )
 			{
-				return false;
+				return -1; // if one list is empty
 			}
 				
-			bool res = true;
-			Composite* tmp;
+			int res = 2; // 2 == start
 			list<Composite*>::iterator it;
 			
 			// check probe molecules:
 			it = ref_molecules_.begin();
 			for (; it != ref_molecules_.end(); it++)
 			{
-				tmp = *it;
-				if ( !(tmp->isChain() || tmp->isResidue() || tmp->isProtein()) )
+				if (res == 2)
 				{
-					res = false;
-					break;
+					res = isProteinic(**it); // 0 for smolecules, 1 for proteins
+				}
+				else if ( (res == 1 && !isProteinic(**it)) ||
+									(res == 0 && isProteinic(**it) ) )
+				{// return early, if mixed here, all is mixed
+					return -1;
 				}
 			}
-			
-			// early exit? (if first test was already negative)
-			if (!res){ return res;}
 			
 			// check reference molecules:
 			it = probe_molecules_.begin();
 			for (; it != probe_molecules_.end(); it++)
 			{
-				tmp = *it;
-				if ( !(tmp->isChain() || tmp->isResidue() || tmp->isProtein()) )
+				if ( (res == 1 && !isProteinic(**it)) ||
+						 (res == 0 && isProteinic(**it) ) )
 				{
-					res = false;
-					break;
+					return -1;
 				}
 			}
 			return res;
+		}
+		
+		/*
+		 * check if a composite is a protein structure
+		 */
+		bool RmsdCalculator::isProteinic(Composite &comp)
+		{
+			return (comp.isChain() || comp.isResidue() || comp.isProtein());
 		}
 		
 		/*
@@ -210,14 +209,17 @@ namespace BALL
 		 */
 		void RmsdCalculator::calc_rmsd()
 		{
-			// TODO: perhaps some pre-checks if rmsd-calculation makes sense
-			// e.g.: smolecule  and proteins together in the lists
-			
+			// pre-check if smolecule and proteins are together in the lists
+			if (-1 == checkProteinsOnly_())
+			{
+				ui_->textEdit_results->appendPlainText(QString("Selection contains proteins AND small molecules, which is not allowed"));
+				return;
+			}
+				
 			getUserSettings(); // get user settings
+			done_calcs++;
 			
 			// setup loop variables:
-			QString result_output = "";
-			
 			StructureMapper mapper;
 			AtomBijection atom_selection;
 			
@@ -225,13 +227,20 @@ namespace BALL
 			Matrix4x4 trans_matrix;
 			
 			// loop in a many-to-many manner over references and probes:
+			ui_->textEdit_results->appendPlainText(QString("\n\n \t Calculation no.: ") + QString::number(done_calcs));
+			ui_->textEdit_results->appendPlainText(QString(""));
 			list<Composite*>::iterator refIt = ref_molecules_.begin();
 			for (; refIt != ref_molecules_.end(); refIt++)
 			{
+				// set output
+				QString ref_name = ui_->treeWidget_workspace->getWidgetItem(*refIt)->text(0);
+				ui_->textEdit_results->appendPlainText(QString("RMSD to reference: ") + ref_name);
+				
 				list<Composite*>::iterator proIt = probe_molecules_.begin();
 				for (; proIt != probe_molecules_.end(); proIt++)
 				{
-//------------------------------------------------------------------------------
+					//--------------------------------------------------------------------
+					QString probe_name = ui_->treeWidget_workspace->getWidgetItem(*proIt)->text(0);
 					// get molecules:
 					AtomContainer* ref_ac = dynamic_cast<AtomContainer*>(*refIt);
 					AtomContainer* probe_ac = dynamic_cast<AtomContainer*>(*proIt);
@@ -279,50 +288,16 @@ namespace BALL
 						applyBijection(atom_selection, ref_ac, probe_ac);
 						rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
 					}
-					// selected atoms for RMSD:
-					ui_->textEdit_results->appendPlainText(QString("got bijection size ")+
-																								 QString(QString::number(atom_selection.size())));
-					// DEBUG START
-					AtomBijection::PairVector::iterator it = atom_selection.begin();
-					for (;it != atom_selection.end(); it++)
-					{
-						ui_->textEdit_results->appendPlainText(QString(it->first->getFullName().c_str())+
-																									 QString(" with ")+QString(it->second->getFullName().c_str()));
-					}
-					ui_->textEdit_results->appendPlainText(QString("RMSD: ") + QString::number(rmsd_result));
-					
-					// TODO
-					// * get the original names, as displayed in the widget
-					//   add to Result-object (perhaps a string/qustring?)
-					// * format RMSD meaningful: float with (max) 4 digits
 
-//			// DEBUG:
-//			ui_->textEdit_results->appendPlainText(QString("OPTIONS:"));
-//			ui_->textEdit_results->appendPlainText(QString("opt_type_:      ") + QString::number(opt_type_));
-//			ui_->textEdit_results->appendPlainText(QString("opt_superpose_: ") + QString::number(opt_superpose_));
-//			ui_->textEdit_results->appendPlainText(QString("opt_atoms_:     ") + QString::number(opt_atoms_));
-//			ui_->textEdit_results->appendPlainText(QString("opt_modify_:      ") + QString::number(opt_modify_));
-//			ui_->textEdit_results->appendPlainText(QString("......................................."));
-//      // selected atoms for RMSD:
-//					ui_->textEdit_results->appendPlainText(QString("got bijection size ")+
-//																								 QString(QString::number(atom_selection.size())));
-//					// DEBUG START
-//					AtomBijection::PairVector::iterator it = atom_selection.begin();
-//					for (;it != atom_selection.end(); it++)
-//					{
-//						ui_->textEdit_results->appendPlainText(QString(it->first->getFullName().c_str())+
-//																									 QString(" - ")+QString(it->second->getFullName().c_str()));
-//					}
-//					// DEBUG END
-
-//------------------------------------------------------------------------------
+					// set output
+					ui_->textEdit_results->appendPlainText( QString("\t for ") + probe_name + QString(": ")+ QString::number(rmsd_result, 'f', 4) );
+				//----------------------------------------------------------------------
 				}
 				ui_->textEdit_results->appendPlainText(QString("")); // next reference
 			} // END many-to-many LOOP
-			
-			//TODO:
-			// Display the results for this (multi)-calculation
 		}
+		
+		
 		
 		/* 
 		 * Create the correct bijection object, depending on
@@ -390,26 +365,13 @@ namespace BALL
 		void RmsdCalculator::getMapping(AtomContainer* probe, AtomContainer* ref, StructureMapper &mapper, Matrix4x4 &trans_matrix)
 		{
 			std::map<String, Position> type_map;
-			type_map["ALA"] = 0;
-			type_map["GLY"] = 1;
-			type_map["VAL"] = 2;
-			type_map["LEU"] = 3;
-			type_map["ILE"] = 4;
-			type_map["SER"] = 5;
-			type_map["CYS"] = 6;
-			type_map["THR"] = 7;
-			type_map["MET"] = 8;
-			type_map["PHE"] = 9;
-			type_map["TYR"] = 10;
-			type_map["TRP"] = 11;
-			type_map["PRO"] = 12;
-			type_map["HIS"] = 13;
-			type_map["LYS"] = 14;
-			type_map["ARG"] = 15;
-			type_map["ASP"] = 16;
-			type_map["GLU"] = 17;
-			type_map["ASN"] = 18;
-			type_map["GLN"] = 19;
+			type_map["ALA"] = 0;  type_map["GLY"] = 1;  type_map["VAL"] = 2;
+			type_map["LEU"] = 3;  type_map["ILE"] = 4;  type_map["SER"] = 5;
+			type_map["CYS"] = 6;  type_map["THR"] = 7;  type_map["MET"] = 8;
+			type_map["PHE"] = 9;  type_map["TYR"] = 10; type_map["TRP"] = 11;
+			type_map["PRO"] = 12; type_map["HIS"] = 13; type_map["LYS"] = 14;
+			type_map["ARG"] = 15; type_map["ASP"] = 16; type_map["GLU"] = 17;
+			type_map["ASN"] = 18; type_map["GLN"] = 19;
 			
 			// default box values
 			double upper = 8.0;
@@ -437,20 +399,37 @@ namespace BALL
 			
 			if (opt_type_ == OPT_TYPE_PROTEIN)
 			{
-				AtomContainer *new_ac = new AtomContainer(*ac, true);
+				// in this case 'ac' will always be a chain:
+				Chain *new_ac = new Chain( *(static_cast<Chain*>(ac)), true);
+
+				// get names:
+				String prot_name = "unknown_protein";
+				String sys_name = "unknown_system";
+				AtomContainer* ac_temp = ac->getSuperAtomContainer();
+				if (ac_temp)
+					prot_name = ac_temp->getName();
+				ac_temp = ac_temp->getSuperAtomContainer();
+				if (ac_temp)
+					sys_name = "copy_"+ac_temp->getName();
+				
+				// create the system
 				Protein* prot = new Protein();
-				prot->insert(*new_ac);
+				prot->insert( *new_ac );
 				new_sys->insert(*prot);
-				getMainControl()->insert(*new_sys, "copy_"+ac->getName());
+				prot->setName(prot_name);
+				new_sys->setName(sys_name);
+				
+				getMainControl()->insert(*new_sys);
 				return new_ac;
 			}
-			else
-			{
-				Molecule * mol = new Molecule(*ac, true);
-				new_sys->insert(*mol);
-				getMainControl()->insert(*new_sys, "copy_"+ac->getName());
-				return mol;
-			}
+//			else // will never be executed... just in case that some day we will also align molecules
+//			{
+//				Molecule * mol = new Molecule(*ac, true);
+//				new_sys->insert(*mol);
+//				getMainControl()->insert(*new_sys, "copy_"+ac->getName());
+//				return mol;
+//			}
+			return 0;
 		}
 		
 		
@@ -541,7 +520,7 @@ namespace BALL
 			
 			// if all selections include only proteinic molecules, enable backbone
 			// and calpha rmsd selection:
-			bool areProteins = checkProteinsOnly_();
+			bool areProteins = (1 == checkProteinsOnly_());
 			ui_->rad_use_ca->setEnabled(areProteins);
 			ui_->rad_use_bb->setEnabled(areProteins);
 			ui_->rad_align_yes->setEnabled(areProteins);

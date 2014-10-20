@@ -13,6 +13,10 @@
 #include <BALL/CONCEPT/molecularInformation.h>
 #endif
 
+#ifndef BALL_DATATYPE_HASHMAP_H
+#include <BALL/DATATYPE/hashMap.h>
+#endif
+
 #include <QtGui>
 
 
@@ -48,9 +52,9 @@ class BALL_VIEW_EXPORT StructureViewWidget: public QTreeWidget
 			\param      name the name of this widget
 	*/
 	StructureViewWidget(QWidget* parent = 0);
+	CompositWidgetItem* getWidgetItem(Composite* comp);
 	
 	void generateTree(HashSet<Composite*>& composites);
-	
 	//@} 
 	/** @name Protected members 
 	*/ 
@@ -61,6 +65,8 @@ class BALL_VIEW_EXPORT StructureViewWidget: public QTreeWidget
 		bool isValidChain(Composite* comp);
 		void recursiveGeneration_(Composite * composite, QString& inname);
 		QString getName_(MolecularInformation &molInfo);
+		
+		HashMap<Composite*, CompositWidgetItem*> comp_to_widget;
 };
 
 }} // namespaces
