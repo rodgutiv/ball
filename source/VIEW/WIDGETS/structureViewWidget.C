@@ -75,24 +75,43 @@ namespace BALL
 			this->resizeColumnToContents(0);
 		}
 		
+		/*
+		 * This function differentiates protein chains from water chains (or chains
+		 * containing ions, ligands etc...). A "valid Chain" contains (mostly) amino
+		 * acids.
+		 */
 		bool StructureViewWidget::isValidChain(Composite *comp)
 		{
 			Chain* totest = dynamic_cast<Chain*>(comp);
 			if (!totest)
 				return false;
 			
-			Residue * isAA=0;
+			Residue * a_res=0;
 			int yes=0;
-			for (int i = 0; i < 10; i++)
+			int min = 7;
+			int num_res = totest->countResidues();
+			
+			// check number of residues:
+			if (num_res == 0)
 			{
-				isAA = totest->getResidue(i);
-				if (!isAA)
+				return false;
+			}
+			else if(num_res < 7)
+			{
+				min = num_res;
+			}
+			
+			// check that most residues are amino acids
+			for (int i = 0; i < num_res; i++)
+			{
+				a_res = totest->getResidue(i);
+				if (!a_res)
 					return false;
 				
-				if(isAA->isAminoAcid())
+				if(a_res->isAminoAcid())
 					yes++;
 			}
-			return (yes >=7);
+			return (min-yes <= 0);
 		}
 		
 		

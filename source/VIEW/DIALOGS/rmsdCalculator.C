@@ -41,8 +41,6 @@ namespace BALL
 			ui_ = new Ui::RmsdCalculatorData;
 			ui_->setupUi ( this );
 			
-			// setup the 3 windows:
-			// ui_->widget->setFocusPolicy(Qt::NoFocus);
 			setObjectName ( name );
 
 			// register the widget with the MainControl
@@ -54,12 +52,13 @@ namespace BALL
 			QPushButton* btn_cancel = ui_->buttonBox->addButton ( tr ( " Cancel " ), QDialogButtonBox::RejectRole );
 			connect( btn_cancel, SIGNAL(clicked()), this, SLOT(finished()) );
 			
-			// Setup the add/remove arrow-buttons:
+			// Setup the 2x4 add/remove arrow-buttons:
+			// single:
 			connect( ui_->btn_toRef, SIGNAL( clicked()), this, SLOT(addTo_ref()) );
 			connect( ui_->btn_fromRef, SIGNAL(clicked()), this, SLOT(removeFrom_ref()) );
 			connect( ui_->btn_toProbes, SIGNAL(clicked()), this, SLOT(addTo_probe()) );
 			connect( ui_->btn_fromProbes, SIGNAL(clicked()), this, SLOT(removeFrom_probe()) );
-			
+			// all:
 			connect( ui_->btn_allToRef, SIGNAL(clicked()), this, SLOT(addAllTo_ref()) );
 			connect( ui_->btn_allFromRef, SIGNAL(clicked()), this, SLOT(removeAllFrom_ref()) );
 			connect( ui_->btn_allToProbes, SIGNAL(clicked()), this, SLOT(addAllTo_probe()) );
@@ -81,7 +80,7 @@ namespace BALL
 #ifdef BALL_VIEW_DEBUG
 			Log.error() << "deleting RmsdCalculator " << this << std::endl;
 #endif
-			// NOT YET SURE IF I NEED TO DELETE SOMETHING HERE
+			// NOT YET 100% SURE IF I NEED TO DELETE SOMETHING ELSE HERE
 
 			delete ui_;
 		}
@@ -92,24 +91,33 @@ namespace BALL
 			// Clear data of a possible previous session:
 			//ui_->textEdit_results->clear();
 			
-			// set data for current session:
+			// reset options:
 			btn_calculate->setEnabled(false);
 			ui_->vbox_opt_modify->setEnabled(false);
+			
+			// reset previously selected structures:
+			removeAllFrom_probe();
+			removeAllFrom_ref();
+			
+			// generate flat names from current composite set:
 			HashSet<Composite*> composites = getMainControl()->getCompositeManager().getComposites();
 			ui_->treeWidget_workspace->clear();
 			ui_->treeWidget_workspace->generateTree(composites);
-			//ui_->treeWidget_workspace->update();
+			
 			QDialog::show();
 			raise();
 		}
 		
+		/* Response to clicking "cancel"
+		 */
 		void RmsdCalculator::finished()
 		{
-			removeAllFrom_probe(); // reset the selections
-			removeAllFrom_ref();
 			hide();
 		}
 		
+		/* How and where this dialog will be
+		 * registered
+		 */
 		void RmsdCalculator::initializeWidget ( MainControl& )
 		{
 			action1_ = insertMenuEntry ( MainControl::TOOLS, tr ( "&Superpose && RMSD" ), this,
@@ -118,6 +126,10 @@ namespace BALL
 			                             UIOperationMode::MODE_ADVANCED );
 		}
 
+		/*
+		 * Disable/Lock specific parts of the GUI
+		 * while this tool is active
+		 */
 		void RmsdCalculator::checkMenu ( MainControl& main_control )
 		{// disable tool menu-entry when structure/composite window is locked:
 			bool busy = main_control.compositesAreLocked();
@@ -179,12 +191,12 @@ namespace BALL
 		 * Makes it possible to deselect radiobuttons that are
 		 * also mutual exclusive
 		 */
-		void RmsdCalculator::radioExclusiveDeselect1(){radioExclusiveDeselect(ui_->rad_modi_copy, 1);}
-		void RmsdCalculator::radioExclusiveDeselect2(){radioExclusiveDeselect(ui_->rad_modi_yes, 2);}
+		void RmsdCalculator::radioExclusiveDeselect1(){radioExclusiveDeselect(ui_->rad_modi_copy);}
+		void RmsdCalculator::radioExclusiveDeselect2(){radioExclusiveDeselect(ui_->rad_modi_yes);}
 		
-		void RmsdCalculator::radioExclusiveDeselect(QRadioButton* btn, int pos)
+		void RmsdCalculator::radioExclusiveDeselect(QRadioButton* btn)
 		{
-			if (pos == 1)
+			if (btn == ui_->rad_modi_copy)
 			{
 				ui_->rad_modi_yes->setChecked(false);
 			}
@@ -192,23 +204,25 @@ namespace BALL
 				ui_->rad_modi_copy->setChecked(false);
 		}
 
-
-		// Calculate RMSD for small-molecules and peptides:
+		
+		/*
+		 * Calculate RMSD for proteins and small-molecules
+		 */
 		void RmsdCalculator::calc_rmsd()
 		{
 			// TODO: perhaps some pre-checks if rmsd-calculation makes sense
 			// e.g.: smolecule  and proteins together in the lists
 			
-			// SETUP:
-			getUserSettings();
-			QString result_output;
+			getUserSettings(); // get user settings
+			
+			// setup loop variables:
+			QString result_output = "";
 			
 			StructureMapper mapper;
 			AtomBijection atom_selection;
 			
 			double rmsd_result = -1;
 			Matrix4x4 trans_matrix;
-			// loop variables (above)
 			
 			// loop in a many-to-many manner over references and probes:
 			list<Composite*>::iterator refIt = ref_molecules_.begin();
@@ -221,19 +235,15 @@ namespace BALL
 					// get molecules:
 					AtomContainer* ref_ac = dynamic_cast<AtomContainer*>(*refIt);
 					AtomContainer* probe_ac = dynamic_cast<AtomContainer*>(*proIt);
-					
-					// get the correct bijection (atom selection for RMSD calculation)
-					// according to users wishes:
-					
-					
-					
-					// superpose (if user wants that)
+
+					// User selected "superpose":
 					if (opt_superpose_ == OPT_CALC_ALIGN)
 					{
 						getMapping(probe_ac, ref_ac, mapper, trans_matrix);// get transformation matrix
 						mapper.setTransformation(trans_matrix);
 						
-						if (opt_modify_ == OPT_MODIFY_YES) // modify the probes themselves
+						// modify the probes/queries:
+						if (opt_modify_ == OPT_MODIFY_YES)
 						{
 							probe_ac->apply(mapper);
 
@@ -242,7 +252,8 @@ namespace BALL
 							// update the changed structure:
 							getMainControl()->updateRepresentationsOf(*probe_ac,true,true);
 						}
-						else if (opt_modify_ == OPT_MODIFY_COPY) // create modified copy and insert into workspace
+						// create a modified copy:
+						else if (opt_modify_ == OPT_MODIFY_COPY)
 						{
 							AtomContainer* temp_probe_ac = insertCopyIntoWorkspace(probe_ac);
 							temp_probe_ac->apply(mapper);
@@ -250,7 +261,8 @@ namespace BALL
 							applyBijection(atom_selection, ref_ac, temp_probe_ac);
 							rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
 						}
-						else // align but without affecting workspace:
+						// align but without affecting workspace:
+						else
 						{
 							AtomContainer* temp_probe_ac = new AtomContainer(*probe_ac, true);
 							temp_probe_ac->apply(mapper);
@@ -261,12 +273,22 @@ namespace BALL
 							delete temp_probe_ac;
 						}
 					}
-					else // no superposition:
+					// User selected: "no superposition":
+					else
 					{
 						applyBijection(atom_selection, ref_ac, probe_ac);
 						rmsd_result = mapper.calculateRMSD(atom_selection); //transformation == identity
 					}
-					
+					// selected atoms for RMSD:
+					ui_->textEdit_results->appendPlainText(QString("got bijection size ")+
+																								 QString(QString::number(atom_selection.size())));
+					// DEBUG START
+					AtomBijection::PairVector::iterator it = atom_selection.begin();
+					for (;it != atom_selection.end(); it++)
+					{
+						ui_->textEdit_results->appendPlainText(QString(it->first->getFullName().c_str())+
+																									 QString(" with ")+QString(it->second->getFullName().c_str()));
+					}
 					ui_->textEdit_results->appendPlainText(QString("RMSD: ") + QString::number(rmsd_result));
 					
 					// TODO
@@ -302,8 +324,11 @@ namespace BALL
 			// Display the results for this (multi)-calculation
 		}
 		
-		/* Create the correct bijection object, depending on
-		 * the user selection
+		/* 
+		 * Create the correct bijection object, depending on
+		 * the users choice.
+		 * This selects certain atoms from the two input atom containers for the
+		 * RMSD calculation later. AtomBijection is a vector<pair<atom*, atom*>>
 		 */
 		void RmsdCalculator::applyBijection(AtomBijection& atm_bij, AtomContainer* ref, AtomContainer* probe)
 		{
@@ -357,8 +382,10 @@ namespace BALL
 			}
 		}
 		
-		/* Check if superposition is necessary,
-		 * if so apply it
+		/* 
+		 * Attain the transformation matrix that maps the probe on the reference.
+		 * Currently this can only be done for proteins and the alignment is 
+		 * calculated only according to their C-alpha atoms.
 		 */
 		void RmsdCalculator::getMapping(AtomContainer* probe, AtomContainer* ref, StructureMapper &mapper, Matrix4x4 &trans_matrix)
 		{
@@ -398,6 +425,11 @@ namespace BALL
 			trans_matrix = mapper.mapProteins(*orig_prob,*orig_ref,type_map,matched_ca,rmsd,upper,lower,tolerance);
 		}
 		
+		
+		/*
+		 * Creates a deep copy of the given atomContainer and inserts it into
+		 * the workspace.
+		 */
 		AtomContainer* RmsdCalculator::insertCopyIntoWorkspace(AtomContainer *ac)
 		{
 			// create a new system:
@@ -421,6 +453,11 @@ namespace BALL
 			}
 		}
 		
+		
+		/*
+		 * Derive the current user settings from the state of the radio buttons
+		 * and the selected structures
+		 */
 		void RmsdCalculator::getUserSettings()
 		{
 			// opt_superpose_
@@ -455,11 +492,11 @@ namespace BALL
 		}
 		
 
-		
-		// modifications on probe structures are only possible
-		// if a structural alignment is done.
-		// Thus only enable these radio buttens, when "Superpose" radiobutton
-		// aka 'rad_align_yes' is checked
+		/*
+		 * Response to selecting "Superpose" or "In place".
+		 * Only enable the modification settings, if the user actually decides to
+		 * align the structures. Otherwise disable the modification settings.
+		 */
 		void RmsdCalculator::checkRadioAlign()
 		{
 			if (ui_->rad_align_yes->isChecked())
@@ -531,9 +568,9 @@ namespace BALL
 			}
 		}
 		
-		//
-		// "Add to list" and "Remove from List" buttons:
-		//
+		/*
+		 * "Add to list" and "Remove from List" buttons:
+		 */
 		void RmsdCalculator::removeFrom_ref()
 		{moveBetween2Views_(ui_->treeWidget_ref, &ref_molecules_, ui_->treeWidget_workspace, 0);}
 		
