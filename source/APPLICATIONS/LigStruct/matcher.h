@@ -59,7 +59,7 @@ void canonicalize(std::vector <Molecule*>& fragments)
 
 ///-------------------match queryFragments to libFragments----------------------
 void matchRigidFragments(
-		boost::unordered_map <BALL::String, Molecule*>& fragmentLib, 
+		boost::unordered_map <BALL::String, TemplateCoord*>& fragmentLib, 
 		vector<Molecule*>& fragments)
 {
 	// get coordinates for rigid fragments
@@ -68,12 +68,21 @@ void matchRigidFragments(
 	{
 		// for all fragments, match these against the lib:
 		UCK keyGen(**it2, true, 5);
-		Molecule* templat = fragmentLib[ keyGen.getUCK() ];
+		TemplateCoord* templat = fragmentLib[ keyGen.getUCK() ];
 			
-		if(templat && (templat->countAtoms() == (*it2)->countAtoms()) )
+		if(templat && (templat->size() == (*it2)->countAtoms()) )
 			setCoordinates(*it2, templat);
 		else
-			cout<<"Warning: could not find a template for "<< (*it2)->getName()<<endl;
+		{
+			cout<<"Warning: could not find a template for ";
+			AtomIterator ati = (*it2)->beginAtom();
+			for(; +ati; ++ati)
+			{
+				cout << ati->getElement().getSymbol();
+			}
+			cout<<endl;
+			cout << "key: "<<keyGen.getUCK()<<endl;
+		}
 	}
 }
 

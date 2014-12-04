@@ -172,13 +172,12 @@ void copyMoleculeProperies(Molecule &orig, Molecule &cop)
 	cop.setName(orig.getName());
 }
 
-void setCoordinates(Molecule* query, Molecule* templat)
+void setCoordinates(Molecule* query, TemplateCoord* templat)
 {
 	AtomIterator qit = query->beginAtom();
-	AtomIterator tit = templat->beginAtom();
-	for (; qit != query->endAtom(); qit++, tit++)
+	for (int i = 0 ; i < templat->size(); i++, qit++)
 	{
-		qit->setPosition( tit->getPosition() );
+		qit->setPosition( (*templat)[i]);
 	}
 }
 
@@ -245,37 +244,37 @@ void readNewFragmentLib(const String& path, boost::unordered_map <BALL::String, 
 	LineBasedFile libFile(path, ios::in);
 	
 	// read in fragmentLib and create hash-map from that:
-//	Log << "Starting loop"<<endl;
+	String key;
 	while( libFile.readLine() )
 	{
-//		Log << "loop iter"<<endl;
-		String line = libFile.getLine();
 		TemplateCoord* tmp_frag=0;
-		if ( line.hasPrefix("key "))
+		if ( libFile.getLine().hasPrefix("key "))
 		{
 			// get key:
-			String key = line.after("key ");
+			key = libFile.getLine().after("key ");
 			
 			// get number of positions:
 			libFile.readLine();
 			Size size = libFile.getLine().toUnsignedInt();
-			Log<< "Got: "<< key << " with Atoms: "<< size<<endl;
+			
 			// get positions:
 			tmp_frag = new TemplateCoord(size);
 			Size i;
-			for(libFile.readLine(), i = 0; i < size; libFile.readLine(), i++)
+			for(i = 0; i < size; i++)
 			{
+				libFile.readLine();
 				String coords[3];
 				libFile.getLine().split(coords, 3);
 				Vector3& vec = (*tmp_frag)[i];
 				vec.set(coords[0].toFloat(), coords[1].toFloat(), coords[2].toFloat());
-//				Log<< vec<<endl;
-//				vec = (*tmp_frag)[i];
-//				Log<< vec<<endl;
 			}
 			
 			// append to hash map
 			fragmentLib[key] = tmp_frag;
+		}
+		else
+		{
+			Log << "WARNING: missed in the template coordinate lib file a line!!!"<<endl;
 		}
 	}
 	libFile.close();
