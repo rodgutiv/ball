@@ -13,6 +13,7 @@
 #include <BALL/DATATYPE/string.h>
 
 #include <BALL/KERNEL/atomContainer.h>
+#include <BALL/KERNEL/fragment.h>
 #include <BALL/KERNEL/molecule.h>
 #include <BALL/KERNEL/atom.h>
 #include <BALL/KERNEL/atomIterator.h>
@@ -44,7 +45,6 @@ using namespace BALL;
 using namespace std;
 
 /// ################# H E L P E R    T Y P E #################
-typedef vector< Atom*> Fragment;
 
 /**
  * @brief The TemplateCoord class is a simple array wrapper for BALL::Vector3
@@ -88,6 +88,11 @@ struct GroupFragment
 	list< pair< unsigned int, Atom*> > connections;
 	Molecule* molecule;
 };
+
+/// Typedefs:
+typedef vector<GroupFragment*> GroupFragmentList;
+typedef boost::unordered_map< int, GroupFragmentList* > CombiLib;
+
 
 /// ################# H E L P E R    F U N C T I O N S #################
 
@@ -367,13 +372,13 @@ void readOBMolecule(const String& path, OBMol& mol)
  * @param smiles
  * @param frag
  */
-void smilesToGroupFragment(OBConversion& conv, String& smiles, GroupFragment* frag)
+GroupFragment* smilesToGroupFragment(OBConversion& conv, String& smiles)
 {
 	// get the obmol SMILES input:
 	OBMol ob_mol;
 	conv.ReadString( &ob_mol, smiles );
 	
-	frag = new GroupFragment();
+	GroupFragment* frag = new GroupFragment();
 	list< pair<int, OBAtom*> > con_lst;
 	
 	// find r-group connections:
@@ -408,6 +413,8 @@ void smilesToGroupFragment(OBConversion& conv, String& smiles, GroupFragment* fr
 		
 		frag->connections.push_back(  make_pair( group_id, atm_ptr )  );
 	}
+	
+	return frag;
 }
 
 
@@ -416,78 +423,121 @@ void smilesToGroupFragment(OBConversion& conv, String& smiles, GroupFragment* fr
 * @brief readGroups
 * @param path
 */
-void readGroups(const String& path)
+void readGroups(CombiLib& input_lib, const String& path)
 {
-	/// Init the Babel-String readeR:
+	typedef vector<GroupFragment*> GroupFragmentList;
+	typedef boost::unordered_map< int, GroupFragmentList* > CombiLib;
+	typedef boost::unordered_map< int, GroupFragmentList* >::iterator CombiLibIterator;
+	/// Init the Babel-String reader:
 	OBConversion conv;
+	conv.SetInFormat("smi");
 	
-	if ( !conv.SetInFormat("smi")){
-		cout << "Could not set input format to SMILES" << endl;
-		exit(EXIT_FAILURE);
-	}
-	
-	
-	/// Read line file
+	/// Read combiLib from line file
 	LineBasedFile combiLibFile(path, ios::in);
+	GroupFragmentList* tmp_lst;
 	
-	// read in combi lib:
-	vector< GroupFragment* > empty_vec;
-	vector< vector< GroupFragment* > > groups(1, empty_vec );
+	int group_id = -1;
+	GroupFragment* tmp_frag;
 	
-	bool in_group = false;
-	int gr_num;
 	while( combiLibFile.readLine() )
 	{
+		/// ignore comments and empty lines
 		if ( combiLibFile.getLine().hasPrefix("#") || combiLibFile.getLine().isEmpty() )
+		{
 			continue;
+		}
 		
-		// set the scaffold (always take the last defined scaffold)
-		if ( combiLibFile.getLine().hasPrefix("scaffold:"))
+		/// scaffold (takes the last defined scaffold)
+		else if ( combiLibFile.getLine().hasPrefix("scaffold:"))
 		{
 			// get the scaffold SMILES
 			String str = String(combiLibFile.getLine().after("scaffold:")).trim();
-			GroupFragment* tmp_frag;
 			
-			smilesToGroupFragment(conv, str, tmp_frag);
+			// generate a new GroupFragment (on heap) from the SMILES
+			tmp_frag = smilesToGroupFragment(conv, str);
 			
-			groups[0][0] = tmp_frag;
+			// if we have another scaffold, delete it and use the new one:
+			if(input_lib.find(0) != input_lib.end())
+			{
+				Log<<"INPUT-WARNING: overwriting a former scaffold, using now: "<<str
+					 <<endl<<"Remember that only one scaffold per combi-lib configuration"
+					 <<" file should be specified. If more scaffolds occur, the last one"
+					 <<" is used"<<endl;
+				delete input_lib[0];
+			}
+
+			tmp_lst = new GroupFragmentList;
+			tmp_lst->push_back(tmp_frag);
+			input_lib[0] = tmp_lst;
 		}
 		
-		// a new group:
-		if ( combiLibFile.getLine().hasPrefix("group_"))
+		/// create a new group:
+		else if ( combiLibFile.getLine().hasPrefix("group_"))
 		{
 			// get group number:
-			String num = String(combiLibFile.getLine().after("group_")).trimRight(":").trim();
-			gr_num = num.toUnsignedInt();
-			groups.push_back( empty_vec );
+			String str_num = String(combiLibFile.getLine().after("group_")).trim().trimRight(":");
+			group_id = str_num.toUnsignedInt();
+			if(group_id == 0)
+			{
+				Log<<"INPUT-ERROR: r-group id 0 is forbidden. Please use a integer "
+						 "between 1 and INT-MAX."<<endl;
+				exit(EXIT_FAILURE);
+			}
+			
+			// create new groupfragmentlist for the group:
+			///TODO: check for existing scaffold (0) and replace existing, avoid mem-leak
+			tmp_lst = new GroupFragmentList;
+			input_lib[group_id] = tmp_lst;
 		}
-		// apend the smiles
+		
+		/// append group-Fragment to current group
 		else
 		{
-//			groups[gr_num].push_back();
+			GroupFragment* tmp_frag = smilesToGroupFragment( conv, combiLibFile.getLine().trim() );
+			
+			bool found = false;
+			list< pair< unsigned int, Atom*> >::iterator it = tmp_frag->connections.begin();
+			
+			// make sure that the fragment realy contains the needed connection:
+			for(; it != tmp_frag->connections.end(); it++)
+				found = (found || ( (*it).first == group_id ) );
+			if (found)
+			{
+				tmp_lst->push_back(tmp_frag);
+			}
+			else
+			{
+				Log<<"INPUT-ERROR: the r-group SMILES "<< combiLibFile.getLine().trim() 
+					 <<" belongs to the r-group block "<< group_id
+					 <<" but that group number was not found in the SMILES"<<endl;
+				Log<<endl;
+				Log<<"Please re-check your combi-lib configuration file."<<endl;
+				exit(EXIT_FAILURE);
+			}
 		}
-
 	}
-	combiLibFile.close();
-	
-	
-
+	combiLibFile.close(); // close combiLib file
+//	//Test: iterate whole lib
+//	CombiLibIterator it = input_lib.begin();
+//	for(; it != input_lib.end(); it++)
+//	{
+//		cout<<endl<<"Group ID: "<<(*it).first<<endl;
+		
+//		tmp_lst = (*it).second;
+//		for(int i = 0; i< tmp_lst->size(); i++)
+//		{
+//			tmp_frag = (*tmp_lst)[i];
+//			cout<<"Molecule "<< i <<" #atoms: "<<tmp_frag->molecule->countAtoms()<<endl;
+//		}
+//	}
 }
 
 #endif // BASIC_H
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
+
+
+
+
+
+
+
+
