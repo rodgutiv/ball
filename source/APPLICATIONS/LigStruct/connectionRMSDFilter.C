@@ -25,6 +25,8 @@
 #include <vector>
 #include <util.h>
 #include <algorithm>
+#include <limits>
+
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 
@@ -42,36 +44,101 @@ void writeMolVec(vector<Molecule> &input, SDFile* handle)
 	}
 }
 
-/// try all atom pair assignments to get the best rmsd
-/// (do not test the central atom, because it is the translation center and
-///  thus should always be 0 anyways)
-/// ----------------------------------------------------------------------------
+
 /*
- * Bond Order and element should fit before
- * one even tries to get an rmsd???
+ * Swap two Atom-Pointer by simply using references to pointers.
  * 
- * 
+ * Dereferencing Atom-pointer and re-assigning will delete the atom bonds, 
+ * only static content is copied AND: that operation would be far more 
+ * expensive, because all contained fields would be copied individually)
  */
-float getBestRMSD(Molecule* li1, Molecule* li2)
+void swapAtoms(Atom*& a, Atom*& b)
 {
-	float result = 0;
-	AtomIterator at1 = li1->beginAtom();
-	for (++at1; +at1 ; at1++)
-	{
-		float smallest = 1000;
-		
-		AtomIterator at2 = li2->beginAtom();
-		for (++at2; +at2; at2++)
-		{
-			float dist = at1->getDistance(*at2);
-			if ( dist < smallest)
-				smallest = dist;
-		}
-		result += smallest;
-	}
-	result /= li1->countAtoms();
-	return result;
+	Atom* tmp = a;
+	a = b;
+	b = tmp;
 }
+
+/*
+ * Sets the 'global_sq_dist' the the lowest value found. All permutations are
+ * tested and 'global_sq_dist' is only updated if a permutation yields a lower
+ * sum of square distances.
+ * 
+ * Thus 'global_sq_dist' needs to initially point to a float that is set to
+ * numeric_limits<float>::max() in the surronding recursion wrapper.
+ */
+void recurPermutations(Atom* center1, AtomIterator& ati, vector<Atom*>& atm_vec,
+											 int i, float loc_sq_dist, float* global_sq_dist)
+{
+	// end recursion case: 
+	// everything was permuted so check how good the square dist was and perhaps
+	// update the global sq_dist
+	if( i == atm_vec.size() )
+	{
+		if( (*global_sq_dist) > loc_sq_dist)
+		{
+			*global_sq_dist = loc_sq_dist;
+		}
+		return;
+	}
+	// recursion case:
+	// test all remaining possible pertubations/mappings of atoms from mol2 
+	// (the vectorentry) to the next atom of mol1 (the atom iterator)
+	else
+	{
+		Bond* bnd1 = ati->getBond(*center1);
+		Bond* bnd2;
+		float sq_dist_update;// the square distance for the current atom pair
+		for(int j = i; j < atm_vec.size(); j++)
+		{
+			bnd2 = atm_vec[j]->getBond(*atm_vec[0]);
+			
+			// test if element and bondtype fit for this assignment
+			// (this is rather for correctness than for speed)
+			if( (bnd1->getOrder() == bnd2->getOrder() ) 
+					&& ( ati->getElement() == atm_vec[j]->getElement() ) )
+			{
+				sq_dist_update = ati->getPosition().getSquareDistance( atm_vec[j]->getPosition() );
+				
+				swapAtoms(atm_vec[i], atm_vec[j]); // permute the vector entries
+
+				AtomIterator ati2 = ati; // create new atom iterator for next recursion
+				recurPermutations( center1, ++ati2, atm_vec, (i+1), (loc_sq_dist + sq_dist_update), global_sq_dist);
+				
+				swapAtoms(atm_vec[i], atm_vec[j]); // undo the swap for next itertation
+			}
+		} // end for-loop
+	}
+}
+
+/**
+ * Get the minimal RMSD between two molecules by testing all meaningful
+ * mappings of mol1 to mol2. Atom element and bond type need to match and 
+ * the mapping is an unambigious projection (each atom of mol1 may only be once 
+ * assigned to an atom of mol2 per mapping and the other way around).
+ * 
+ * The central atom is not tested, because it is the translation 
+ * center and thus should always have distance 0
+ */
+float getMinRMSD(AtomContainer* mol1, AtomContainer* mol2)
+{
+	
+	// create a vector to allow easy swapping of atoms
+	vector<Atom*> atm_vec;
+	for(AtomIterator ati = mol2->beginAtom(); +ati; ++ati)
+		atm_vec.push_back( &*ati );
+	
+	// the 'sum of all square distances' for the best (minimal) permutation:
+	float min_sq_dist = numeric_limits<float>::max(); 
+	
+	AtomIterator ati = mol1->beginAtom(); ++ati;  // start with second atom (first is central atom)
+	recurPermutations( mol1->getAtom(0), ati, atm_vec, 1, 0, &min_sq_dist);
+	
+	min_sq_dist = sqrt( min_sq_dist / (float)(atm_vec.size() - 1) );
+	return min_sq_dist;
+}
+
+
 
 /// Helper to get a single key component
 String getBondName(Atom& atm)
@@ -96,16 +163,16 @@ Atom* getMatchingAtom(Molecule* mol, Atom* atm)
 			return &*ati;
 	}
 	
-	// DEBUG:
-	ati = mol->beginAtom();
-	cout <<endl<< "I am Searching for: " <<elem<<" BO:"<< bo<<endl;
-	for( ; +ati; ati++)
-	{
-		cout<< ati->getElement().getSymbol()<< " "<< ati->beginBond()->getOrder()<<endl;
-	}
-	cout<<"Key: "<<mol->getProperty("key").getString()<<endl;
-	cout<<"Key: "<<((Molecule*)atm->getParent())->getProperty("key").getString()<<endl;
-	// DEBUG END
+//	// DEBUG:
+//	ati = mol->beginAtom();
+//	cout <<endl<< "I am Searching for: " <<elem<<" BO:"<< bo<<endl;
+//	for( ; +ati; ati++)
+//	{
+//		cout<< ati->getElement().getSymbol()<< " "<< ati->beginBond()->getOrder()<<endl;
+//	}
+//	cout<<"Key: "<<mol->getProperty("key").getString()<<endl;
+//	cout<<"Key: "<<((Molecule*)atm->getParent())->getProperty("key").getString()<<endl;
+//	// DEBUG END
 	
 	cout<<"ERROR: could not find a partner Atom"<<endl;
 	exit(EXIT_FAILURE);
@@ -118,15 +185,15 @@ bool compatible(Atom* at1,Atom* at2)
 }
 
 /// Structurally align a star-graph molecule (one central atom with any 
-/// number of direct neighbors, but no neighbors of dist 2).
+/// number of direct neighbors, but without neighbors of dist 2).
 /// 
 /// Currently we are only interested in the optimal RMSD but one could also
-/// change the method to yield the optimal transformation matrix. The problem
-/// here is, that for such molecules a unique ordering for the atoms can not
-/// always be achived (e.g.: center atoms with 4 identical neighbors and bond 
-/// types)
+/// change the method to yield the optimal transformation matrix. 
 /// 
-/// ----------------------------------------------------------------------------
+/// The problem here is, that for such molecules a unique ordering for the 
+/// atoms can not always be achived (e.g.: center atoms with 4 identical 
+/// neighbors and bond types) 
+/// 
 /// My current primitive solution is:
 //1.) Catch simple cases of: 1 central atom and 1 neighbor, or 2 neighbors
 //    (here we directly know the optimal transformation)
@@ -195,7 +262,7 @@ float star_align(Molecule* mol1, Molecule* mol2)
 		transformer.setTransformation(trans_matrix);
 		mol1->apply(transformer);
 		
-		return getBestRMSD(mol1, mol2);
+		return getMinRMSD( mol1, mol2);
 	}
 	/// 2.) At least 3 neighbors are given, see if unique atoms exist in mol1
 	vector< Atom* > unique_atm;
@@ -243,7 +310,7 @@ float star_align(Molecule* mol1, Molecule* mol2)
 		transformer.setTransformation(trans_matrix);
 		mol1->apply(transformer);
 		
-		return getBestRMSD(mol1, mol2);
+		return getMinRMSD(mol1, mol2);
 	}
 
 	///3.) Just one unique atom was found, here we need to test some transformations
@@ -285,7 +352,7 @@ float star_align(Molecule* mol1, Molecule* mol2)
 				transformer.setTransformation(trans_matrix);
 				mol1->apply(transformer);
 				
-				rmsd = getBestRMSD(mol1, mol2);
+				rmsd = getMinRMSD(mol1, mol2);
 				if (rmsd < best_rmsd)
 					best_rmsd = rmsd;
 			}
@@ -328,7 +395,7 @@ float star_align(Molecule* mol1, Molecule* mol2)
 				transformer.setTransformation(trans_matrix);
 				mol1->apply(transformer);
 				
-				rmsd = getBestRMSD(mol1, mol2);
+				rmsd = getMinRMSD(mol1, mol2);
 				if (rmsd < best_rmsd)
 					best_rmsd = rmsd;
 			}
@@ -348,7 +415,7 @@ bool comparator(pair<int, Molecule*>& a, pair<int, Molecule*>& b)
 
 
 
-/// Find Bins depending on an RMSD threshold
+/// Find Bins for a class of connection keys depending on an RMSD threshold
 /// ----------------------------------------------------------------------------
 void getBins(vector< pair<int, Molecule*> >& bins, vector<Molecule*>& mols)
 {

@@ -35,6 +35,7 @@
 #include <openbabel/graphsym.h>
 
 #include <vector>
+#include <limits>
 
 #include <boost/unordered_map.hpp>
 #include <boost/pending/disjoint_sets.hpp>
@@ -163,7 +164,7 @@ const int getAtomPosition(Atom* atm, Molecule* mol)
 
 
 /// empty 'fromMol' and append the atoms to 'toMol'
-void transferMolecule( Molecule* toMol, Molecule* fromMol)
+void transferMolecule( AtomContainer* toMol, AtomContainer* fromMol)
 {
 	int num_atm = fromMol->countAtoms();
 	for(int i = 0; i < num_atm; i++)
