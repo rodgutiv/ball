@@ -92,18 +92,10 @@ private:
 	 */
 	static void getRemaining(AtmVec& site, AtomContainer &templ, AtmVec& result);
 	
-	static void matchPermutaions(AVIter& ati1, AVIter& end1, 
-																						AtmVec& atm_vec, int i, 
-																						float loc_sq_dist, float* global_sq_dist,
-																						AtmVec& result);
-	
-//	/*
-//	 * Handle connections where at least one fragment contains only one atom
-//	 */
-//	static void handleSimpleConnections( Atom* atm1, Atom* atm2,
-//																boost::unordered_map <String, float >& bondLib,
-//																boost::unordered_map <String, Fragment* >& connectLib);
-	
+	static void matchPermutaions(Atom &center, AVIter& ati1, AVIter& end1,
+															 AtmVec& atm_vec, int i, float loc_sq_dist, 
+															 float* global_sq_dist, AtmVec& result);
+
 	/*
 	 * compare ("element+bondorder",Atom*)-pairs according to the string part
 	 */
@@ -133,7 +125,7 @@ private:
 	static void getSite(Atom* atm, AtmVec& site, String& key);
 
 	
-	static void getSelectedSite(Atom* atm, Atom *partner, AtmVec& site, String& key);
+	static void getSelectedSite(Atom* atm, AtmVec& site, String& key);
 	static void recurLinkerConnect(Atom* at, Composite * const parent, ConnectionMap& link_lib);
 	static void connectAtomToSite(AtmVec& site, AtomContainer& temp, Atom* partner);
 	
@@ -150,10 +142,12 @@ private:
 	
 	/* 
 	 * Find the first atom in 'mol', that has same element and bond order as 'atm'
+	 * 
+	 * Precondition:
 	 */
-	static Atom* getMatchingAtom(AtomContainer *mol, Atom* atm);
-	static Atom* getMatchingAtom(AtmVec& mol, Atom* atm);
-	
+	static Atom* getMatchingAtom(Atom *center, AtomContainer *mol, String& elem, short bo);
+	static Atom* getMatchingAtom(Atom *center, AtmVec& mol, String& elem, short bo);
+	static Atom* getMatchingAtomAll(Atom *center, AtmVec& mol, String& elem, short bo);
 	/*
 	 * Check if two atoms of a star-molecule are identical in their element and
 	 * the bond order to the central atom.

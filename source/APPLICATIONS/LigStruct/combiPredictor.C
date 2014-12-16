@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
 	parpars.setOutputFormatSource("i","o");
 
 	String manual = 
-			"Generate a valid (not optimized) 3D structure for structures of an"
+			"Generate a valid (not optimized) 3D structure for structures of an "
 			"entire combinatorial library which is defined in a CONF file (either "
 			"containing SIMLES for each group or giving the paths multi line SMILES "
 			"files).";
@@ -67,11 +67,11 @@ int main(int argc, char* argv[])
 /// F I N I S H
 /// write output
 	String outfile_name = String(parpars.get("o"));
-//	SDFile outfile(outfile_name, ios::out);
+	SDFile outfile(outfile_name, ios::out);
 
-//	Log << "wrote structure to file: "<< endl << outfile_name << endl<<endl;
+	Log << "wrote structure to file: "<< endl << outfile_name << endl<<endl;
 	
 /// Clean up
-//	outfile.close();
+	outfile.close();
 }
 
