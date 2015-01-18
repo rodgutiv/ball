@@ -31,7 +31,7 @@ void StructureAssembler::assembleStructure(AtomContainer& mol)
 	
 	_fragmenter.setMolecule(mol);
 	_fragmenter.getMoleculeFragments(rigids, linker, connections);
-	
+
 	// canonicalize, generate UCK-key and match the rigid fragments
 	for( Fragment*& tmp: rigids )
 	{
@@ -51,17 +51,25 @@ void StructureAssembler::assembleStructure(AtomContainer& mol)
 	{
 		connectClashFree( * atm_pair.first, * atm_pair.second );
 	}
+	
+	// re-insert all fragments into the original molecule
+	// TODO: perhaps it makes more sense to splice all atoms, or only insert the root of one fragment
+	for(Fragment*& f : rigids)
+	{
+		mol.insert( *f );
+	}
+	for(Fragment*& f : linker)
+	{
+		mol.insert( *f );
+	}
 }
 
-void StructureAssembler::connectClashFree(Atom at1, Atom at2)
+void StructureAssembler::connectClashFree(Atom& at1, Atom& at2)
 {
 	//1.) select biggest molecule as 1st connection partner. 
 	//    REASON: we assume that our connection method keeps the first fragment 
 	//    in place and only transforms the second fragment!
-	
-	AtomContainer* parent_1 = (AtomContainer*) at1.getParent();
-	AtomContainer* parent_2 = (AtomContainer*) at2.getParent();
-	
+
 	// get root container to be able to identify all connected atoms of the
 	// respective connection-atom:
 	AtomContainer* root_1 = (AtomContainer*) &at1.getRoot();
@@ -70,11 +78,12 @@ void StructureAssembler::connectClashFree(Atom at1, Atom at2)
 	if( root_1->countAtoms() > root_2->countAtoms() )
 	{
 		_connector.connect( &at1, &at2 );
-		parent_1->insert( *parent_2 );
+		root_1->insert( *root_2 );
 	}
 	else
 	{
 		_connector.connect( &at2, &at1 );
+		root_2->insert( *root_1 );
 	}
 	
 	// 2.) detect and resolve any clashes:

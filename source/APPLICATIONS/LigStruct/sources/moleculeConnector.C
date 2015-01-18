@@ -52,8 +52,6 @@ void MoleculeConnector::setLibs(ConSiteMap &connectLib, BondLengthMap &bondLib)
  */
 void MoleculeConnector::connect(Atom* atm1, Atom* atm2)
 {
-	StarAligner star_aligner;
-	
 	///1) get connection sites of the two atoms and the corresponding templates
 	cout<<"####Step1"<<endl;
 	AtmVec site_frag1, site_frag2;
@@ -86,13 +84,13 @@ void MoleculeConnector::connect(Atom* atm1, Atom* atm2)
 	
 	cout<<"Got Site:"<<LigBase::printInlineStarMol(site_frag1)<<endl;
 	cout<<"Got Connection:"<<LigBase::printInlineStarMol(templ1)<<endl;
-	star_aligner.setMolecules(site_frag1, *templ1);
+	_star_aligner.setMolecules(site_frag1, *templ1);
 	cout<<"####Step2: did set molecules"<<endl;
-	star_aligner.align();
+	_star_aligner.align();
 	cout<<"####Step2: did align"<<endl;
 	
 	AtmVec remain_tmp1;
-	star_aligner.getRemainder(remain_tmp1);
+	_star_aligner.getRemainder(remain_tmp1);
 	cout<<"####Step2: got remainder"<<endl;
 	
 	///3) transfrom templ2 to match with frag2
@@ -100,16 +98,16 @@ void MoleculeConnector::connect(Atom* atm1, Atom* atm2)
 	
 	// get all atoms that are in the same container as atm2:
 	AtomContainer* frag2 = (AtomContainer*) &atm2->getRoot();
-//	cout<<"    got partent"<<endl;
+	cout<<"    got partent"<<endl;
 	
 //	cout<<
-	star_aligner.setMolecules( site_frag2, *templ2);
-	star_aligner.align();
-//	cout<<"    aligned"<<endl;
+	_star_aligner.setMolecules( site_frag2, *templ2);
+	_star_aligner.align();
+	cout<<"    aligned"<<endl;
 	
 	AtmVec remain_tmp2;
-	star_aligner.getRemainder(remain_tmp2);
-//	cout<<"    got remaining"<<endl;
+	_star_aligner.getRemainder(remain_tmp2);
+	cout<<"    got remaining"<<endl;
 	
 	///4) transfrom the connection bond determined for temp2 to the one determined
 	///   for temp1.
@@ -124,8 +122,8 @@ void MoleculeConnector::connect(Atom* atm1, Atom* atm2)
 	Atom* atm2_partner = getMatchingAtomAll( &*templ2->beginAtom(), remain_tmp2, elem1, bo1);
 	
 	cout<<"found partner"<<endl;
-	star_aligner.setMolecules(*frag2, *frag2);
-	star_aligner.bondAlign(atm1, atm1_partner, atm2_partner, atm2);
+	_star_aligner.setMolecules(*frag2, *frag2);
+	_star_aligner.bondAlign(atm1, atm1_partner, atm2_partner, atm2);
 	cout<<"aligned"<<endl;
 	cout<<"transformed"<<endl;
 	
@@ -138,6 +136,26 @@ void MoleculeConnector::connect(Atom* atm1, Atom* atm2)
 	frag2->apply(t_later);
 	delete templ1;
 	delete templ2;
+	
+	/// 6) possible double bond correction:
+	checkAndCorrectDoubleBond( *atm1, *atm2, *frag2);
+}
+
+void MoleculeConnector::checkAndCorrectDoubleBond(Atom &atm1, Atom &atm2, AtomContainer &frag2)
+{
+	/// 1) check if any atom has a double bond neighbor
+	if( hasOneDoubleBond(atm1) )
+	{
+	}
+	else if( hasOneDoubleBond(atm2) )
+	{
+		
+	}
+}
+
+bool MoleculeConnector::hasOneDoubleBond( Atom &atm )
+{
+	return false;
 }
 
 
@@ -150,7 +168,7 @@ void MoleculeConnector::getSite(Atom* atm, AtmVec &site, String& key)
 	site.push_back(atm);
 	key = atm->getElement().getSymbol();
 	
-	Composite* parent = atm->getParent();
+	Composite* root = & atm->getRoot();
 	
 	// structure to sort the neighbors according to their names (element+BO)
 	vector< pair<String,Atom*> > names_neighbors;
@@ -174,7 +192,7 @@ void MoleculeConnector::getSite(Atom* atm, AtmVec &site, String& key)
 	{
 		key += (*name_it).first;
 		
-		if( (*name_it).second->getParent() == parent) 
+		if( & (*name_it).second->getRoot() == root) 
 			site.push_back( (*name_it).second );
 	}
 }

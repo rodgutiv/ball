@@ -5,6 +5,7 @@
 #define MOLECULECONNECTOR_H
 
 #include "base.h"
+#include "starAligner.h"
 
 #include <BALL/DATATYPE/string.h>
 #include <BALL/KERNEL/fragment.h>
@@ -42,9 +43,9 @@ public:
 
 private:
 	
-	ConSiteMap* _connections;
-	BondLengthMap* _bond_lengths;
+	void checkAndCorrectDoubleBond( Atom& atm1, Atom& atm2, AtomContainer& frag2);
 	
+	bool hasOneDoubleBond( Atom& atm );
 	/*
 	 * From an atom (given by 'atm') determine the site and the key for the site.
 	 * The site contains the given atom at position 0 and all other direct 
@@ -66,6 +67,11 @@ private:
 	 * compare ("element+bondorder",Atom*)-pairs according to the string part
 	 */
 	static bool compare(pair<String,Atom*>& a, pair<String,Atom*>& b);
+	
+	/// Class member:
+	ConSiteMap* _connections;
+	BondLengthMap* _bond_lengths;
+	StarAligner _star_aligner;
 };
 
 #endif // MOLECULECONNECTOR_H
