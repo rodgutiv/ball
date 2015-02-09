@@ -6,10 +6,6 @@
 #include "moleculeConnector.h"
 #include "structureAssembler.h"
 
-//using namespace std;
-namespace BALL
-{
-
 class CombiAssembler
 {
 public:
@@ -20,17 +16,18 @@ public:
 	void setScaffold(RFragment& scaffold);
 	void setCombiLib(CombiLibMap& clib);
 	
+	void writeCombinations(SDFile& handle);
+	
+	void getCombinations( std::list< BALL::AtomContainer*>& result );
 private:
 	
-	RFragment* _scaffold;
-	CombiLibMap* _r_groups;
+	RFragment*        _scaffold;
+	CombiLibMap*      _r_groups;
 	
 	MoleculeConnector _connector;
-	ClashResolver _cresolv;
+	ClashResolver     _cresolv;
 	
 	void connectRFragments();
 };
-
-}
 
 #endif // COMBIASSEMBLER_H
