@@ -685,7 +685,6 @@ add_custom_target(LIGSTRUCT)
 
 ### Add bins and tests
 ADD_SUBDIRECTORY(source/APPLICATIONS/LigStruct/bin)
-ADD_SUBDIRECTORY(source/APPLICATIONS/LigStruct/tests)
 
 
 
