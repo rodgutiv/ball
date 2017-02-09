@@ -42,7 +42,8 @@ namespace BALL
 		}
 		else
 		{
-			if (coarsePenalty() == b.coarsePenalty())
+			//if (coarsePenalty() == b.coarsePenalty())
+			if ( (fabs(coarsePenalty() - b.coarsePenalty())) < 0.0001 )
 			{
 				if (abop->use_fine_penalty_ && (finePenalty() > b.finePenalty()))
 				{
